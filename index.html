@@ -614,8 +614,6 @@ body::before {
   <h3 class="section-title">Your Apps</h3>
   <div class="app-grid" id="appGrid"></div>
 
-  <h3 class="section-title">Quick Links</h3>
-  <div class="quick-links" id="quickLinks"></div>
 </div>
 
 <script>
@@ -630,12 +628,6 @@ const portalApps = [
   { icon: '🧾', name: 'FFF Invoice Generator', desc: 'Generate invoices for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
 ];
 
-const quickLinks = [
-  { icon: '🛍️', name: 'Shopify Admin', url: 'https://admin.shopify.com' },
-  { icon: '🏪', name: 'Walmart Seller Center', url: 'https://seller.walmart.com' },
-  { icon: '🌹', name: 'Rose & Lilly Store', url: 'https://roseandlilly-2.myshopify.com' },
-  { icon: '📧', name: 'Email', url: '#' },
-];
 
 // ─── Pin Input Logic ───
 const pins = document.querySelectorAll('.pin-input');
@@ -757,10 +749,6 @@ function renderApps() {
     </a>
   `).join('');
 
-  const links = document.getElementById('quickLinks');
-  links.innerHTML = quickLinks.map(l => `
-    <a class="quick-link" href="${l.url}" target="_blank" rel="noopener">${l.icon} ${l.name}</a>
-  `).join('');
 }
 
 function logout() {
