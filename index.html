@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amy & Annette — Portal Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAF6F1;
+  --bg2: #F2E8DF;
+  --accent: #C49A7A;
+  --accent-hover: #A07A5A;
+  --gold: #B8963E;
+  --gold-light: #D4B86A;
+  --text-dark: #3B2F2F;
+  --text-med: #7A5C4F;
+  --text-light: #A68B7B;
+  --border: #E2D4C8;
+  --white: #FFFFFF;
+  --error: #B85C4A;
+  --success: #7A9E7E;
+  --font-heading: 'Cormorant Garamond', serif;
+  --font-body: 'Jost', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Background pattern */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(196,154,122,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(184,150,62,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(242,232,223,0.5) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Decorative gold line */
+.gold-line {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold), var(--accent), var(--gold), transparent);
+}
+
+/* Login Container */
+.login-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  padding: 0 24px;
+  animation: fadeUp 0.8s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Logo */
+.logo-area {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.logo-mark {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--gold));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--white);
+  letter-spacing: 1px;
+  box-shadow: 0 8px 32px rgba(196,154,122,0.25);
+  position: relative;
+}
+
+.logo-mark::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(196,154,122,0.2);
+}
+
+.logo-title {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--text-dark);
+  letter-spacing: 2px;
+}
+
+.logo-title span {
+  font-weight: 600;
+}
+
+.logo-sub {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-light);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-top: 8px;
+  font-weight: 400;
+}
+
+/* Card */
+.login-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 36px;
+  box-shadow: 0 4px 24px rgba(59,47,47,0.06);
+}
+
+.login-card h2 {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 6px;
+  color: var(--text-dark);
+}
+
+.login-card .subtitle {
+  font-size: 13px;
+  color: var(--text-light);
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+/* Pin Input */
+.pin-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.pin-input {
+  width: 56px;
+  height: 64px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-dark);
+  background: var(--bg);
+  outline: none;
+  transition: all 0.25s ease;
+  caret-color: var(--accent);
+}
+
+.pin-input:focus {
+  border-color: var(--accent);
+  background: var(--white);
+  box-shadow: 0 0 0 4px rgba(196,154,122,0.12);
+}
+
+.pin-input.filled {
+  border-color: var(--gold-light);
+  background: rgba(184,150,62,0.04);
+}
+
+.pin-input.error {
+  border-color: var(--error);
+  background: rgba(184,92,74,0.04);
+}
+
+.pin-input.success {
+  border-color: var(--success);
+  background: rgba(122,158,126,0.06);
+}
+
+/* Shake animation */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+  20%, 40%, 60%, 80% { transform: translateX(6px); }
+}
+.shake { animation: shake 0.5s ease; }
+
+/* Login button */
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-btn:hover {
+  background: linear-gradient(135deg, var(--accent-hover), #8B6545);
+  box-shadow: 0 4px 16px rgba(196,154,122,0.3);
+  transform: translateY(-1px);
+}
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+.login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Error message */
+.error-msg {
+  text-align: center;
+  font-size: 13px;
+  color: var(--error);
+  font-weight: 500;
+  margin-top: 16px;
+  min-height: 20px;
+  transition: opacity 0.3s ease;
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+  color: var(--text-light);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Username/Password form (alternative) */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-med);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-dark);
+  background: var(--bg);
+  outline: none;
+  transition: all 0.25s ease;
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+  background: var(--white);
+  box-shadow: 0 0 0 4px rgba(196,154,122,0.1);
+}
+
+.form-input::placeholder {
+  color: var(--text-light);
+}
+
+/* Session badge */
+.session-badge {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 11px;
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.session-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  display: inline-block;
+}
+
+/* Footer */
+.login-footer {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 11px;
+  color: var(--text-light);
+  letter-spacing: 0.5px;
+}
+
+/* ============ Portal Dashboard (post-login) ============ */
+.portal {
+  display: none;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 960px;
+  padding: 0 24px;
+  animation: fadeUp 0.6s ease;
+}
+
+.portal.active {
+  display: block;
+}
+
+.portal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portal-brand .mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--gold));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.portal-brand h1 {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.portal-brand .sub {
+  font-size: 11px;
+  color: var(--text-light);
+  letter-spacing: 1px;
+}
+
+.logout-btn {
+  padding: 8px 20px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-med);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+/* Welcome banner */
+.welcome-banner {
+  background: linear-gradient(135deg, var(--text-dark), #5C4A3A);
+  border-radius: 16px;
+  padding: 32px;
+  color: var(--white);
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-banner::after {
+  content: '';
+  position: absolute;
+  top: -50%; right: -20%;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: rgba(196,154,122,0.1);
+}
+
+.welcome-banner h2 {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 400;
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.welcome-banner p {
+  font-size: 13px;
+  opacity: 0.7;
+  position: relative;
+  z-index: 1;
+}
+
+/* App Grid */
+.section-title {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-dark);
+  margin-bottom: 16px;
+}
+
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.app-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 18px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.app-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 20px rgba(196,154,122,0.12);
+  transform: translateY(-3px);
+}
+
+.app-card .icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.app-card .name {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+}
+
+.app-card .desc {
+  font-size: 11px;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+
+.app-card .badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.badge-live { background: rgba(122,158,126,0.15); color: var(--success); }
+.badge-soon { background: rgba(184,150,62,0.12); color: var(--gold); }
+
+/* Quick links */
+.quick-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+
+.quick-link {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-med);
+  text-decoration: none;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quick-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .login-card { padding: 32px 24px; }
+  .pin-input { width: 48px; height: 56px; font-size: 24px; }
+  .logo-title { font-size: 26px; }
+  .app-grid { grid-template-columns: repeat(2, 1fr); }
+  .welcome-banner { padding: 24px; }
+  .portal-header { justify-content: center; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="gold-line"></div>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div class="login-container" id="loginScreen">
+  <div class="logo-area">
+    <div class="logo-mark">A&A</div>
+    <div class="logo-title"><span>Amy</span> & <span>Annette</span></div>
+    <div class="logo-sub">Management Portal</div>
+  </div>
+
+  <div class="login-card">
+    <h2>Welcome Back</h2>
+    <p class="subtitle">Enter your access code to continue</p>
+
+    <div class="pin-row" id="pinRow">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="0" autocomplete="off">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="1" autocomplete="off">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="2" autocomplete="off">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="3" autocomplete="off">
+    </div>
+
+    <button class="login-btn" id="loginBtn" disabled onclick="attemptLogin()">ENTER PORTAL</button>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="session-badge" id="sessionBadge" style="display:none">
+      <span class="dot"></span> Session active for 8 hours
+    </div>
+  </div>
+
+  <div class="login-footer">
+    &copy; 2026 Amy & Annette. Authorized access only.
+  </div>
+</div>
+
+<!-- ============ PORTAL DASHBOARD ============ -->
+<div class="portal" id="portalScreen">
+  <div class="portal-header">
+    <div class="portal-brand">
+      <div class="mark">A&A</div>
+      <div>
+        <h1>Amy & Annette</h1>
+        <div class="sub">Management Portal</div>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+
+  <div class="welcome-banner">
+    <h2>Welcome to your portal</h2>
+    <p>Manage shipments, sales, and operations across all channels.</p>
+  </div>
+
+  <h3 class="section-title">Your Apps</h3>
+  <div class="app-grid" id="appGrid"></div>
+
+  <h3 class="section-title">Quick Links</h3>
+  <div class="quick-links" id="quickLinks"></div>
+</div>
+
+<script>
+// ─── Configuration ───
+const ACCESS_CODE = '2375';
+const SESSION_KEY = 'aa_portal_session';
+const SESSION_HOURS = 8;
+
+const portalApps = [
+  { icon: '📦', name: 'WFS Shipment Tracker', desc: 'Track Walmart fulfillment shipments by SKU', url: 'walmart_wfs_tracker_5.html', status: 'live' },
+  { icon: '📊', name: 'Sales Dashboard', desc: 'Revenue, orders, and channel analytics', url: '#', status: 'soon' },
+  { icon: '⭐', name: 'Review Manager', desc: 'Monitor and manage product reviews', url: '#', status: 'soon' },
+  { icon: '📋', name: 'Inventory Manager', desc: 'Stock levels across all warehouses', url: '#', status: 'soon' },
+  { icon: '🏷️', name: 'Listing Builder', desc: 'Create and optimize product listings', url: '#', status: 'soon' },
+  { icon: '🚚', name: 'Order Tracker', desc: 'Track orders and shipping status', url: '#', status: 'soon' },
+];
+
+const quickLinks = [
+  { icon: '🛍️', name: 'Shopify Admin', url: 'https://admin.shopify.com' },
+  { icon: '🏪', name: 'Walmart Seller Center', url: 'https://seller.walmart.com' },
+  { icon: '🌹', name: 'Rose & Lilly Store', url: 'https://roseandlilly-2.myshopify.com' },
+  { icon: '📧', name: 'Email', url: '#' },
+];
+
+// ─── Pin Input Logic ───
+const pins = document.querySelectorAll('.pin-input');
+const loginBtn = document.getElementById('loginBtn');
+const errorMsg = document.getElementById('errorMsg');
+const pinRow = document.getElementById('pinRow');
+
+pins.forEach((pin, i) => {
+  pin.addEventListener('input', e => {
+    const val = e.target.value.replace(/\D/g, '');
+    e.target.value = val.slice(-1);
+    if (val && i < 3) pins[i + 1].focus();
+    pin.classList.toggle('filled', !!val);
+    updateBtn();
+    clearError();
+  });
+
+  pin.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !pin.value && i > 0) {
+      pins[i - 1].focus();
+      pins[i - 1].value = '';
+      pins[i - 1].classList.remove('filled');
+      updateBtn();
+    }
+    if (e.key === 'Enter') attemptLogin();
+  });
+
+  pin.addEventListener('focus', () => pin.select());
+
+  // Handle paste
+  pin.addEventListener('paste', e => {
+    e.preventDefault();
+    const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 4);
+    paste.split('').forEach((ch, j) => {
+      if (pins[j]) {
+        pins[j].value = ch;
+        pins[j].classList.add('filled');
+      }
+    });
+    if (paste.length > 0) pins[Math.min(paste.length, 3)].focus();
+    updateBtn();
+  });
+});
+
+function updateBtn() {
+  const code = [...pins].map(p => p.value).join('');
+  loginBtn.disabled = code.length < 4;
+}
+
+function clearError() {
+  errorMsg.textContent = '';
+  pins.forEach(p => p.classList.remove('error'));
+}
+
+function getCode() {
+  return [...pins].map(p => p.value).join('');
+}
+
+// ─── Login Logic ───
+let attempts = 0;
+
+function attemptLogin() {
+  const code = getCode();
+  if (code.length < 4) return;
+
+  if (code === ACCESS_CODE) {
+    // Success
+    pins.forEach(p => p.classList.add('success'));
+    loginBtn.textContent = 'ACCESS GRANTED';
+    errorMsg.textContent = '';
+
+    // Save session
+    const session = { ts: Date.now(), expires: Date.now() + (SESSION_HOURS * 60 * 60 * 1000) };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+    setTimeout(() => showPortal(), 600);
+  } else {
+    // Fail
+    attempts++;
+    pins.forEach(p => p.classList.add('error'));
+    pinRow.classList.add('shake');
+    setTimeout(() => pinRow.classList.remove('shake'), 500);
+
+    if (attempts >= 5) {
+      errorMsg.textContent = 'Too many attempts. Please try again later.';
+      loginBtn.disabled = true;
+      setTimeout(() => { attempts = 0; loginBtn.disabled = false; }, 30000);
+    } else {
+      errorMsg.textContent = 'Incorrect code. Please try again.';
+    }
+
+    setTimeout(() => {
+      pins.forEach(p => { p.value = ''; p.classList.remove('error', 'filled'); });
+      pins[0].focus();
+      updateBtn();
+    }, 800);
+  }
+}
+
+// ─── Portal ───
+function showPortal() {
+  document.getElementById('loginScreen').style.display = 'none';
+  const portal = document.getElementById('portalScreen');
+  portal.classList.add('active');
+  document.body.style.justifyContent = 'flex-start';
+  document.body.style.overflow = 'auto';
+  document.body.style.paddingTop = '20px';
+  renderApps();
+}
+
+function renderApps() {
+  const grid = document.getElementById('appGrid');
+  grid.innerHTML = portalApps.map(app => `
+    <a class="app-card" href="${app.url}" ${app.url !== '#' ? '' : 'onclick="event.preventDefault()"'}>
+      <div class="icon">${app.icon}</div>
+      <div class="name">${app.name}</div>
+      <div class="desc">${app.desc}</div>
+      <span class="badge ${app.status === 'live' ? 'badge-live' : 'badge-soon'}">${app.status === 'live' ? 'Live' : 'Coming Soon'}</span>
+    </a>
+  `).join('');
+
+  const links = document.getElementById('quickLinks');
+  links.innerHTML = quickLinks.map(l => `
+    <a class="quick-link" href="${l.url}" target="_blank" rel="noopener">${l.icon} ${l.name}</a>
+  `).join('');
+}
+
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
+// ─── Session Check ───
+(function checkSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if (s && s.expires > Date.now()) {
+      showPortal();
+      return;
+    }
+  } catch(e) {}
+  // Focus first pin
+  setTimeout(() => pins[0].focus(), 300);
+})();
+</script>
+</body>
+</html>
