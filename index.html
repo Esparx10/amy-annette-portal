@@ -158,13 +158,13 @@ body::before {
 .pin-row {
   display: flex;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
   margin-bottom: 28px;
 }
 
 .pin-input {
-  width: 56px;
-  height: 64px;
+  width: 42px;
+  height: 52px;
   border: 2px solid var(--border);
   border-radius: 12px;
   text-align: center;
@@ -548,7 +548,7 @@ body::before {
 /* Responsive */
 @media (max-width: 600px) {
   .login-card { padding: 32px 24px; }
-  .pin-input { width: 48px; height: 56px; font-size: 24px; }
+  .pin-input { width: 36px; height: 46px; font-size: 20px; }
   .logo-title { font-size: 26px; }
   .app-grid { grid-template-columns: repeat(2, 1fr); }
   .welcome-banner { padding: 24px; }
@@ -577,6 +577,10 @@ body::before {
       <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="1" autocomplete="off">
       <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="2" autocomplete="off">
       <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="3" autocomplete="off">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="4" autocomplete="off">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="5" autocomplete="off">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="6" autocomplete="off">
+      <input class="pin-input" type="password" inputmode="numeric" maxlength="1" data-index="7" autocomplete="off">
     </div>
 
     <button class="login-btn" id="loginBtn" disabled onclick="attemptLogin()">ENTER PORTAL</button>
@@ -639,7 +643,7 @@ pins.forEach((pin, i) => {
   pin.addEventListener('input', e => {
     const val = e.target.value.replace(/\D/g, '');
     e.target.value = val.slice(-1);
-    if (val && i < 3) pins[i + 1].focus();
+    if (val && i < 7) pins[i + 1].focus();
     pin.classList.toggle('filled', !!val);
     updateBtn();
     clearError();
@@ -660,21 +664,21 @@ pins.forEach((pin, i) => {
   // Handle paste
   pin.addEventListener('paste', e => {
     e.preventDefault();
-    const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 4);
+    const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 8);
     paste.split('').forEach((ch, j) => {
       if (pins[j]) {
         pins[j].value = ch;
         pins[j].classList.add('filled');
       }
     });
-    if (paste.length > 0) pins[Math.min(paste.length, 3)].focus();
+    if (paste.length > 0) pins[Math.min(paste.length, 7)].focus();
     updateBtn();
   });
 });
 
 function updateBtn() {
   const code = [...pins].map(p => p.value).join('');
-  loginBtn.disabled = code.length < 4;
+  loginBtn.disabled = code.length < 8;
 }
 
 function clearError() {
@@ -691,7 +695,7 @@ let attempts = 0;
 
 function attemptLogin() {
   const code = getCode();
-  if (code.length < 4) return;
+  if (code.length < 8) return;
 
   if (code === ACCESS_CODE) {
     // Success
