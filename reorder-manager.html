@@ -116,6 +116,15 @@ tr.selected td { background: #F5EBD8; }
 </style>
 </head>
 <body>
+<script>
+// Session check — redirect to portal login if not authenticated
+(function() {
+  try {
+    const s = JSON.parse(localStorage.getItem('aa_portal_session'));
+    if (!s || !s.expires || s.expires < Date.now()) { window.location.href = 'index.html'; return; }
+  } catch(e) { window.location.href = 'index.html'; }
+})();
+</script>
 
 <div class="header">
   <h1>Reorder Manager</h1>
