@@ -625,9 +625,23 @@ body::before {
 const ACCESS_CODE = '10111982';
 const SESSION_KEY = 'aa_portal_session';
 const SESSION_HOURS = 8;
+const WCC_URL_KEY = 'wcc_tunnel_url';
+const WCC_DEFAULT_URL = 'https://ages-nowhere-collectibles-connectors.trycloudflare.com';
+
+function getWCCUrl() {
+  return localStorage.getItem(WCC_URL_KEY) || WCC_DEFAULT_URL;
+}
+
+function updateWCCUrl() {
+  const newUrl = prompt('Enter the new Walmart Command Center tunnel URL:', getWCCUrl());
+  if (newUrl && newUrl.trim()) {
+    localStorage.setItem(WCC_URL_KEY, newUrl.trim());
+    renderApps();
+  }
+}
 
 const portalApps = [
-  { icon: '📊', name: 'Walmart Command Center', desc: 'Full analytics dashboard — orders, revenue, WFS, disputes, inventory', url: 'http://localhost:4000/dashboard.html', status: 'live' },
+  { icon: '📊', name: 'Walmart Command Center', desc: 'Full analytics dashboard — orders, revenue, WFS, disputes, inventory', url: getWCCUrl(), status: 'live' },
   { icon: '📦', name: 'WFS Shipment Tracker', desc: 'Track Walmart fulfillment shipments by SKU', url: 'walmart_wfs_tracker_5.html', status: 'live' },
   { icon: '📋', name: 'QTY Update', desc: 'Woot Jewelry & Toys SKU/Quantity matcher', url: 'QTY-Update.html', status: 'live' },
   { icon: '🧾', name: 'FFF Invoice Generator', desc: 'Generate invoices for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
@@ -745,16 +759,20 @@ function showPortal() {
 }
 
 function renderApps() {
+  // Refresh WCC URL in case it was updated
+  portalApps[0].url = getWCCUrl();
   const grid = document.getElementById('appGrid');
   grid.innerHTML = portalApps.map(app => `
-    <a class="app-card" href="${app.url}" ${app.url !== '#' ? '' : 'onclick="event.preventDefault()"'}>
-      <div class="icon">${app.icon}</div>
-      <div class="name">${app.name}</div>
-      <div class="desc">${app.desc}</div>
-      <span class="badge ${app.status === 'live' ? 'badge-live' : 'badge-soon'}">${app.status === 'live' ? 'Live' : 'Coming Soon'}</span>
-    </a>
+    <div style="position:relative;">
+      <a class="app-card" href="${app.url}" target="_blank" ${app.url !== '#' ? '' : 'onclick="event.preventDefault()"'} style="display:block;">
+        <div class="icon">${app.icon}</div>
+        <div class="name">${app.name}</div>
+        <div class="desc">${app.desc}</div>
+        <span class="badge ${app.status === 'live' ? 'badge-live' : 'badge-soon'}">${app.status === 'live' ? 'Live' : 'Coming Soon'}</span>
+      </a>
+      ${app.name === 'Walmart Command Center' ? '<button onclick="event.stopPropagation();updateWCCUrl();" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;font-size:16px;opacity:0.5;z-index:2;" title="Update tunnel URL">&#9881;</button>' : ''}
+    </div>
   `).join('');
-
 }
 
 function logout() {
