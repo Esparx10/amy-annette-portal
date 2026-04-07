@@ -127,6 +127,18 @@ tr:hover td { background: #faf6f1; }
 .conn-status { font-size: 11px; padding: 3px 10px; border-radius: 10px; }
 .conn-ok { background: #e6f2e8; color: #5a7e5e; }
 .conn-err { background: #fde8e8; color: var(--red); }
+
+/* DROP ZONE */
+.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 20px; text-align: center; margin-bottom: 16px; cursor: pointer; transition: all 0.2s; background: var(--card); }
+.drop-zone:hover { border-color: var(--accent); background: #faf6f1; }
+.drop-zone.dragover { border-color: var(--accent); background: #f5efe8; border-style: solid; }
+.drop-zone .drop-icon { font-size: 28px; margin-bottom: 6px; opacity: 0.5; }
+.drop-zone .drop-text { font-size: 13px; color: var(--text-light); }
+.drop-zone .drop-text strong { color: var(--accent); }
+.drop-result { margin-top: 10px; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; }
+.drop-result.success { display: block; background: #e6f2e8; color: #5a7e5e; }
+.drop-result.warning { display: block; background: #fff8f0; color: var(--orange); }
+.drop-result.error { display: block; background: #fde8e8; color: var(--red); }
 </style>
 </head>
 <body>
@@ -147,6 +159,14 @@ tr:hover td { background: #faf6f1; }
     <div class="stat-box"><div class="num" style="color:var(--blue)" id="statRequested">0</div><div class="lbl">Requested</div></div>
     <div class="stat-box"><div class="num" style="color:var(--orange)" id="statOrdered">0</div><div class="lbl">On Order</div></div>
     <div class="stat-box"><div class="num" style="color:var(--green)" id="statReceived">0</div><div class="lbl">Received</div></div>
+  </div>
+
+  <!-- Spreadsheet Drop Zone -->
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('dropFile').click()">
+    <div class="drop-icon">&#128203;</div>
+    <div class="drop-text">Drop a spreadsheet here to update quantities<br><strong>Click to browse</strong> — expects columns: SKU, Qty (and optionally Cost, Notes)</div>
+    <input type="file" id="dropFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleDropFile(this.files[0])">
+    <div class="drop-result" id="dropResult"></div>
   </div>
 
   <!-- Add SKU Bar -->
@@ -586,6 +606,87 @@ async function doAddToList(sku, requested_by, notes) {
   closeAc();
   document.getElementById('addSku').focus();
   loadOrders();
+}
+
+// ─── Spreadsheet Drop Zone ───
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleDropFile(file);
+});
+
+async function handleDropFile(file) {
+  if (!file) return;
+  const result = document.getElementById('dropResult');
+  result.className = 'drop-result'; result.style.display = 'none';
+
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+    if (!rows.length) { showDropResult('error', 'Spreadsheet is empty'); return; }
+
+    // Find column mappings (flexible matching)
+    const headers = Object.keys(rows[0]);
+    const findCol = (...names) => headers.find(h => names.some(n => h.toLowerCase().replace(/[^a-z]/g,'').includes(n)));
+    const skuCol = findCol('sku', 'itemid', 'item');
+    const qtyCol = findCol('qty', 'quantity', 'productionqty', 'prodqty', 'units', 'amount');
+    const costCol = findCol('cost', 'newcost', 'price', 'unitcost');
+    const notesCol = findCol('notes', 'note', 'comment');
+
+    if (!skuCol) { showDropResult('error', 'No SKU column found. Expected a column named SKU, Item ID, etc.'); return; }
+    if (!qtyCol && !costCol) { showDropResult('error', 'No Qty or Cost column found. Expected Qty, Quantity, Cost, Price, etc.'); return; }
+
+    const items = [];
+    for (const row of rows) {
+      const sku = String(row[skuCol] || '').trim();
+      if (!sku) continue;
+      const item = { sku };
+      if (qtyCol && row[qtyCol] !== '') item.production_qty = parseInt(row[qtyCol]) || 0;
+      if (costCol && row[costCol] !== '') item.new_cost = parseFloat(String(row[costCol]).replace(/[$,]/g, '')) || 0;
+      if (notesCol && row[notesCol] !== '') item.notes = String(row[notesCol]);
+      items.push(item);
+    }
+
+    if (!items.length) { showDropResult('error', 'No valid rows found'); return; }
+
+    showDropResult('warning', `Processing ${items.length} SKUs...`);
+
+    const resp = await fetch(API + '/api/reorder-list/bulk-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    }).then(r => r.json());
+
+    if (resp.error) { showDropResult('error', 'Error: ' + resp.error); return; }
+
+    let msg = `Updated ${resp.updated} of ${resp.total} SKUs`;
+    if (resp.notFound.length) {
+      msg += ` — ${resp.notFound.length} not on list: ${resp.notFound.slice(0, 5).join(', ')}${resp.notFound.length > 5 ? '...' : ''}`;
+      showDropResult('warning', msg);
+    } else {
+      showDropResult('success', msg);
+    }
+
+    loadOrders();
+    document.getElementById('dropFile').value = '';
+  } catch (e) {
+    showDropResult('error', 'Error reading file: ' + e.message);
+  }
+}
+
+function showDropResult(type, msg) {
+  const el = document.getElementById('dropResult');
+  el.className = 'drop-result ' + type;
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
 
 // ─── Init ───
