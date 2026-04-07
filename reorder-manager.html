@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Amy & Annette — Reorder Manager</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -12,439 +11,402 @@
   --bg: #FAF6F1; --bg2: #F2E8DF; --card: #FFFFFF;
   --accent: #C49A7A; --accent-hover: #A07A5A;
   --gold: #B8963E; --gold-light: #D4B86A;
-  --text-dark: #3B2F2F; --text-med: #7A5C4F; --text-light: #A68B7B;
+  --text: #3B2F2F; --text-light: #7A5C4F; --text-med: #7A5C4F;
   --border: #E2D4C8; --white: #FFFFFF;
-  --error: #B85C4A; --success: #7A9E7E; --blue: #4A7AB5; --orange: #C4833A;
+  --green: #7A9E7E; --red: #B85C4A; --blue: #4A7AB5; --orange: #C4833A;
   --font-heading: 'Cormorant Garamond', serif;
   --font-body: 'Jost', sans-serif;
-  --radius: 12px; --shadow: 0 1px 4px rgba(59,47,47,0.08);
+  --radius: 12px; --shadow: 0 1px 4px rgba(59,47,47,0.08); --shadow-lg: 0 4px 14px rgba(59,47,47,0.12);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: var(--font-body); background: var(--bg); color: var(--text-dark); min-height: 100vh; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--text); min-height: 100vh; }
 
-/* HEADER */
-.header { background: var(--white); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; position: sticky; top: 0; z-index: 200; }
-.header h1 { font-family: var(--font-heading); font-size: 22px; font-weight: 600; flex: 1; }
-.header-right { display: flex; align-items: center; gap: 10px; }
-.back-btn { padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); color: var(--text-med); font-family: var(--font-body); font-size: 12px; cursor: pointer; text-decoration: none; }
-.back-btn:hover { border-color: var(--accent); color: var(--accent); }
-.nav-btn { padding: 6px 14px; border: 1.5px solid var(--gold); border-radius: 8px; background: var(--white); color: var(--gold); font-family: var(--font-body); font-size: 12px; font-weight: 500; cursor: pointer; }
-.nav-btn:hover { background: var(--gold); color: var(--white); }
-.sku-count { font-size: 11px; color: var(--text-light); }
+.nav { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; height: 52px; position: sticky; top: 0; z-index: 200; }
+.nav-brand { font-family: var(--font-heading); font-weight: 600; font-size: 20px; flex: 1; color: var(--text); }
+.nav-brand a { color: var(--accent); font-family: var(--font-body); font-size: 12px; font-weight: 400; margin-left: 16px; text-decoration: none; }
+.nav-brand a:hover { color: var(--accent-hover); }
+.nav-right { display: flex; align-items: center; gap: 10px; }
+.nav-btn { background: var(--accent); color: #fff; border: none; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: var(--font-body); }
+.nav-btn:hover { background: var(--accent-hover); }
+.price-status { color: var(--text-light); font-size: 11px; }
 
-.container { max-width: 1360px; margin: 0 auto; padding: 20px; }
+.container { max-width: 1300px; margin: 0 auto; padding: 20px; }
 
 .btn { padding: 7px 14px; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: var(--font-body); }
-.btn-gold { background: var(--gold); color: var(--white); }
-.btn-gold:hover { background: var(--gold-light); }
-.btn-accent { background: var(--accent); color: var(--white); }
-.btn-accent:hover { background: var(--accent-hover); }
-.btn-green { background: var(--success); color: var(--white); }
+.btn-blue { background: var(--accent); color: #fff; }
+.btn-blue:hover { background: var(--accent-hover); }
+.btn-green { background: var(--green); color: #fff; }
 .btn-green:hover { opacity: 0.9; }
-.btn-orange { background: var(--orange); color: var(--white); }
-.btn-orange:hover { opacity: 0.9; }
-.btn-red { background: var(--error); color: var(--white); font-size: 14px; padding: 2px 8px; }
+.btn-red { background: var(--red); color: #fff; font-size: 14px; padding: 2px 8px; }
 .btn-red:hover { opacity: 0.9; }
-.btn-outline { background: none; border: 1.5px solid var(--border); color: var(--text-med); }
-.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-orange { background: var(--orange); color: #fff; }
+.btn-orange:hover { opacity: 0.9; }
+.btn-outline { background: none; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: var(--bg2); }
 
 /* STATS */
 .stats-row { display: flex; gap: 14px; margin-bottom: 16px; }
-.stat-box { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; flex: 1; text-align: center; }
-.stat-box .num { font-family: var(--font-heading); font-size: 28px; font-weight: 600; }
+.stat-box { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 18px; flex: 1; text-align: center; }
+.stat-box .num { font-size: 24px; font-weight: 700; font-family: var(--font-heading); }
 .stat-box .lbl { font-size: 11px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
 
 /* ADD BAR */
-.add-bar { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-.field { display: flex; flex-direction: column; gap: 3px; position: relative; }
-.field label { font-size: 10px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
-.field input { padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font-body); background: var(--white); }
-.field input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,150,62,0.12); }
-.sku-input { width: 200px; font-family: 'JetBrains Mono', 'Courier New', monospace; font-weight: 600; text-transform: uppercase; }
+.add-bar { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.add-bar .field { display: flex; flex-direction: column; gap: 3px; position: relative; }
+.add-bar .field label { font-size: 10px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+.add-bar .field input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font-body); }
+.add-bar .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(196,154,122,0.15); }
+.sku-input { width: 200px; font-family: 'Courier New', monospace !important; font-weight: 600; text-transform: uppercase; }
+.name-input { width: 160px; }
 .by-input { width: 120px; }
 .notes-input { width: 140px; }
 
 /* AUTOCOMPLETE */
-.ac-list { position: absolute; top: 100%; left: 0; width: 360px; background: var(--white); border: 1.5px solid var(--border); border-radius: 0 0 8px 8px; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: 0 6px 16px rgba(59,47,47,0.12); display: none; }
+.ac-list { position: absolute; top: 100%; left: 0; width: 360px; background: #fff; border: 1px solid var(--border); border-radius: 0 0 8px 8px; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg); display: none; }
 .ac-list.open { display: block; }
-.ac-item { padding: 7px 10px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; }
-.ac-item:hover, .ac-item.active { background: var(--bg2); }
-.ac-sku { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--gold); }
-.ac-price { color: var(--success); font-weight: 600; }
+.ac-item { padding: 6px 10px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; }
+.ac-item:hover, .ac-item.active { background: #f5efe8; }
+.ac-sku { font-family: 'Courier New', monospace; font-weight: 700; color: var(--accent); }
+.ac-price { color: var(--green); font-weight: 600; }
 .ac-stock { color: var(--text-light); font-size: 11px; }
+
+/* NOTES MODAL */
+.modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(59,47,47,0.4); z-index:500; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow-lg); width:480px; max-width:90vw; max-height:80vh; display:flex; flex-direction:column; }
+.modal-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.modal-header h3 { font-size:15px; font-weight:700; font-family: var(--font-heading); }
+.modal-close { background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-light); padding:4px 8px; }
+.modal-close:hover { color:var(--text); }
+.modal-body { padding:20px; overflow-y:auto; flex:1; }
+.modal-body textarea { width:100%; min-height:180px; border:1px solid var(--border); border-radius:8px; padding:12px; font-size:13px; font-family:var(--font-body); resize:vertical; line-height:1.6; }
+.modal-body textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(196,154,122,0.15); }
+.modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+/* CONFIRM MODAL */
+.confirm-modal { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow-lg); width:420px; max-width:90vw; padding:24px; }
+.confirm-modal h3 { font-size:15px; font-weight:700; margin-bottom:12px; color:var(--orange); font-family: var(--font-heading); }
+.confirm-modal .confirm-detail { background:#fff8f0; border:1px solid #E2D4C8; border-radius:8px; padding:12px; margin-bottom:16px; font-size:13px; line-height:1.6; }
+.confirm-modal .confirm-detail strong { color:var(--text); }
+.confirm-modal .confirm-actions { display:flex; justify-content:flex-end; gap:8px; }
 
 /* FILTER TABS */
 .filter-tabs { display: flex; gap: 4px; margin-bottom: 14px; }
-.filter-tab { padding: 6px 14px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-med); font-family: var(--font-body); }
-.filter-tab.active { background: var(--gold); color: var(--white); border-color: var(--gold); }
+.filter-tab { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text); font-family: var(--font-body); }
+.filter-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .filter-tab .count { margin-left: 4px; opacity: 0.7; }
 
 /* TABLE */
-.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { text-align: left; padding: 8px 8px; background: var(--bg2); font-weight: 600; color: var(--text-light); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border-bottom: 1.5px solid var(--border); position: sticky; top: 0; z-index: 1; }
-td { padding: 7px 8px; border-bottom: 1px solid var(--bg2); }
-tr:hover td { background: #FAF3EC; }
-tr.selected td { background: #F5EBD8; }
+th { text-align: left; padding: 8px 10px; background: var(--bg2); font-weight: 600; color: var(--text-light); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 1; }
+td { padding: 7px 10px; border-bottom: 1px solid #f1ece6; }
+tr:hover td { background: #faf6f1; }
 .table-scroll { max-height: 600px; overflow-y: auto; }
-.sku-cell { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--gold); font-size: 12px; }
-.inline-num { border: 1.5px solid var(--border); border-radius: 6px; padding: 3px 6px; width: 70px; text-align: center; font-size: 13px; font-weight: 600; font-family: var(--font-body); background: var(--white); }
-.inline-num:focus { border-color: var(--gold); outline: none; }
-.inline-cost { border: 1.5px solid var(--border); border-radius: 6px; padding: 3px 6px; width: 75px; text-align: right; font-size: 13px; font-family: var(--font-body); }
-.inline-cost:focus { border-color: var(--gold); outline: none; }
-.inline-notes { border: 1.5px solid var(--border); border-radius: 6px; padding: 3px 6px; width: 100px; font-size: 12px; font-family: var(--font-body); }
-.inline-notes:focus { border-color: var(--gold); outline: none; }
-.inline-date { border: 1.5px solid var(--border); border-radius: 6px; padding: 3px 6px; font-size: 12px; font-family: var(--font-body); }
-.inline-date:focus { border-color: var(--gold); outline: none; }
+.sku-cell { font-family: 'Courier New', monospace; font-weight: 700; color: var(--accent); font-size: 12px; }
+.inline-num { border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; width: 70px; text-align: center; font-size: 13px; font-weight: 600; font-family: var(--font-body); }
+.inline-cost { border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; width: 75px; text-align: right; font-size: 13px; font-family: var(--font-body); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
-.badge-requested { background: #E8DDD2; color: var(--accent-hover); }
-.badge-ordered { background: #F5E6CC; color: var(--orange); }
-.badge-received { background: #D8E8DA; color: #4A7A4E; }
+.badge-requested { background: #e8f0f8; color: #4A7AB5; }
+.badge-ordered { background: #fff3e6; color: #C4833A; }
+.badge-received { background: #e6f2e8; color: #5a7e5e; }
 .check-col { text-align: center; font-size: 16px; }
-.row-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--gold); }
+.times-col { text-align: center; font-weight: 700; }
+.stock-col { text-align: center; }
+.stock-val { font-size: 12px; font-weight: 600; }
+.stock-oos { color: var(--red); }
+.stock-ok { color: var(--green); }
 
 /* BOTTOM BAR */
 .bottom-bar { display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
 .bottom-bar .spacer { flex: 1; }
-.selection-info { font-size: 12px; color: var(--gold); font-weight: 600; }
+
 .empty-msg { text-align: center; padding: 40px; color: var(--text-light); font-size: 14px; }
 
-/* LOADING */
-.loading { text-align: center; padding: 60px; color: var(--text-light); }
-.loading .spin { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* CONNECTION STATUS */
+.conn-status { font-size: 11px; padding: 3px 10px; border-radius: 10px; }
+.conn-ok { background: #e6f2e8; color: #5a7e5e; }
+.conn-err { background: #fde8e8; color: var(--red); }
 </style>
 </head>
 <body>
-<script>
-// Session check — redirect to portal login if not authenticated
-(function() {
-  try {
-    const s = JSON.parse(localStorage.getItem('aa_portal_session'));
-    if (!s || !s.expires || s.expires < Date.now()) { window.location.href = 'index.html'; return; }
-  } catch(e) { window.location.href = 'index.html'; }
-})();
-</script>
 
-<div class="header">
-  <h1>Reorder Manager</h1>
-  <div class="header-right">
-    <span class="sku-count" id="skuCount">Loading...</span>
+<div class="nav">
+  <div class="nav-brand">Reorder Manager <a href="index.html">Back to Portal</a></div>
+  <div class="nav-right">
+    <span class="conn-status" id="connStatus">Connecting...</span>
+    <span class="price-status" id="priceStatus">Loading...</span>
     <button class="nav-btn" onclick="document.getElementById('priceFile').click()">Update Prices</button>
     <input type="file" id="priceFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="uploadPriceFile(this.files[0])">
-    <a href="index.html" class="back-btn">Back to Portal</a>
   </div>
 </div>
 
 <div class="container">
-  <div id="loadingScreen" class="loading"><div class="spin"></div><br>Initializing database...</div>
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-box"><div class="num" style="color:var(--blue)" id="statRequested">0</div><div class="lbl">Requested</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--orange)" id="statOrdered">0</div><div class="lbl">On Order</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--green)" id="statReceived">0</div><div class="lbl">Received</div></div>
+  </div>
 
-  <div id="mainContent" style="display:none">
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-box"><div class="num" style="color:var(--accent)" id="statRequested">0</div><div class="lbl">Requested</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--orange)" id="statOrdered">0</div><div class="lbl">On Order</div></div>
-      <div class="stat-box"><div class="num" style="color:var(--success)" id="statReceived">0</div><div class="lbl">Received</div></div>
+  <!-- Add SKU Bar -->
+  <div class="add-bar">
+    <div class="field" style="position:relative">
+      <label>SKU</label>
+      <input type="text" class="sku-input" id="addSku" placeholder="Type SKU..." autocomplete="off"
+        oninput="onSkuInput(this.value)" onkeydown="onSkuKeydown(event)"
+        onfocus="onSkuInput(this.value)" onblur="setTimeout(closeAc,150)">
+      <div class="ac-list" id="acList"></div>
     </div>
-
-    <!-- Add SKU -->
-    <div class="add-bar">
-      <div class="field" style="position:relative">
-        <label>SKU</label>
-        <input type="text" class="sku-input" id="addSku" placeholder="Type SKU..." autocomplete="off"
-          oninput="onSkuInput(this.value)" onkeydown="onSkuKeydown(event)"
-          onfocus="onSkuInput(this.value)" onblur="setTimeout(closeAc,150)">
-        <div class="ac-list" id="acList"></div>
-      </div>
-      <div class="field">
-        <label>Requested By</label>
-        <input type="text" class="by-input" id="addBy" placeholder="Name" onkeydown="if(event.key==='Enter'){event.preventDefault();addToList();}">
-      </div>
-      <div class="field">
-        <label>Notes</label>
-        <input type="text" class="notes-input" id="addNotes" placeholder="Optional" onkeydown="if(event.key==='Enter'){event.preventDefault();addToList();}">
-      </div>
-      <button class="btn btn-gold" onclick="addToList()">Add to List</button>
+    <div class="field">
+      <label>Requested By</label>
+      <input type="text" class="by-input" id="addBy" placeholder="Name" onkeydown="if(event.key==='Enter'){event.preventDefault();addToList();}">
     </div>
-
-    <!-- Filter Tabs -->
-    <div class="filter-tabs">
-      <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
-      <button class="filter-tab" onclick="setFilter('Requested',this)">Requested <span class="count" id="filterRequested"></span></button>
-      <button class="filter-tab" onclick="setFilter('Ordered',this)">On Order <span class="count" id="filterOrdered"></span></button>
-      <button class="filter-tab" onclick="setFilter('Received',this)">Received <span class="count" id="filterReceived"></span></button>
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" class="notes-input" id="addNotes" placeholder="Optional" onkeydown="if(event.key==='Enter'){event.preventDefault();addToList();}">
     </div>
+    <button class="btn btn-blue" onclick="addToList()">Add to List</button>
+  </div>
 
-    <!-- Order Table -->
-    <div class="card">
-      <div class="table-scroll">
-        <table>
-          <thead><tr>
-            <th style="width:30px"><input type="checkbox" class="row-check" id="selectAll" onchange="toggleSelectAll(this.checked)"></th>
-            <th>SKU</th><th>Item Name</th><th style="text-align:center">On Order?</th>
-            <th>Requested By</th><th style="text-align:center">Times</th><th style="text-align:center">Stock</th>
-            <th style="text-align:center">Suggested Qty</th><th style="text-align:center">Production Qty</th>
-            <th style="text-align:right">Original Cost</th><th style="text-align:right">New Cost</th>
-            <th>Status</th><th>Date Ordered</th><th>Notes</th><th></th>
-          </tr></thead>
-          <tbody id="orderBody"></tbody>
-        </table>
-      </div>
+  <!-- Filter Tabs -->
+  <div class="filter-tabs" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-tab" onclick="setFilter('Requested',this)">Requested <span class="count" id="filterRequested"></span></button>
+    <button class="filter-tab" onclick="setFilter('Ordered',this)">On Order <span class="count" id="filterOrdered"></span></button>
+    <button class="filter-tab" onclick="setFilter('Received',this)">Received <span class="count" id="filterReceived"></span></button>
+    <input type="text" id="orderSearch" placeholder="Search SKU..." oninput="applySearch()" style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:200px;font-family:var(--font-body);">
+  </div>
+
+  <!-- Order List Table -->
+  <div class="card">
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>SKU</th>
+          <th>Item Name</th>
+          <th style="text-align:center">On Order?</th>
+          <th>Requested By</th>
+          <th style="text-align:center">Times</th>
+          <th style="text-align:center">Stock</th>
+          <th style="text-align:center">Suggested Qty</th>
+          <th style="text-align:center">Production Qty</th>
+          <th style="text-align:right">Original Cost</th>
+          <th style="text-align:right">New Cost</th>
+          <th>Status</th>
+          <th>Date Ordered</th>
+          <th>Notes</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="orderBody"></tbody>
+      </table>
     </div>
+  </div>
 
-    <!-- Bottom -->
-    <div class="bottom-bar">
-      <span style="font-size:12px;color:var(--text-light)" id="rowCount"></span>
-      <span class="selection-info" id="selectionInfo"></span>
-      <div class="spacer"></div>
-      <button class="btn btn-outline" onclick="copyList()">Copy SKU List</button>
-      <button class="btn btn-accent" onclick="downloadTxt()">Download .txt</button>
-      <button class="btn btn-green" onclick="downloadExcel()">Download Excel</button>
+  <!-- Bottom Actions -->
+  <div class="bottom-bar">
+    <span style="font-size:12px;color:var(--text-light)" id="rowCount"></span>
+    <div class="spacer"></div>
+    <button class="btn btn-outline" onclick="copyList()">Copy</button>
+    <button class="btn btn-green" onclick="downloadExcel()">Download Excel</button>
+  </div>
+</div>
+
+<!-- Notes Modal -->
+<div class="modal-overlay" id="notesModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="notesModalTitle">Notes</h3>
+      <button class="modal-close" onclick="closeNotesModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="notesModalText" placeholder="Add notes here..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeNotesModal()">Cancel</button>
+      <button class="btn btn-blue" onclick="saveNotesModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Duplicate SKU Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="confirm-modal">
+    <h3>This SKU is already on order</h3>
+    <div class="confirm-detail" id="confirmDetail"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-outline" onclick="closeConfirmModal()">Cancel</button>
+      <button class="btn btn-orange" onclick="confirmReorder()">Reorder Anyway</button>
     </div>
   </div>
 </div>
 
 <script>
-// ─── DATABASE ───
-const DB_NAME = 'reorder_manager_db';
-const DB_STORE = 'sqlitedb';
-let db = null;
+const WCC_DEFAULT_URL = 'https://conservational-unvaccinated-dotty.ngrok-free.dev';
+const API = localStorage.getItem('wcc_url') || WCC_DEFAULT_URL;
+
+// Skip ngrok browser warning on all fetch calls
+const _origFetch = window.fetch;
+window.fetch = function(url, opts = {}) {
+  opts.headers = opts.headers || {};
+  if (typeof opts.headers.set === 'function') { opts.headers.set('ngrok-skip-browser-warning', 'true'); }
+  else { opts.headers['ngrok-skip-browser-warning'] = 'true'; }
+  return _origFetch.call(this, url, opts);
+};
+
 let currentFilter = 'all';
-let selectedIds = new Set();
+let allOrders = [];
+let allOrdersUnfiltered = [];
 let acMatches = [];
 let acIndex = -1;
 
-function saveDB() {
-  return new Promise((resolve, reject) => {
-    const data = db.export();
-    const buffer = new Uint8Array(data);
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(DB_STORE);
-    req.onsuccess = e => {
-      const tx = e.target.result.transaction(DB_STORE, 'readwrite');
-      tx.objectStore(DB_STORE).put(buffer, 'db');
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    };
-    req.onerror = () => reject(req.error);
-  });
+// ─── Connection Check ───
+async function checkConnection() {
+  const el = document.getElementById('connStatus');
+  try {
+    await fetch(API + '/api/reorder-list/stats');
+    el.textContent = 'Connected';
+    el.className = 'conn-status conn-ok';
+  } catch (e) {
+    el.textContent = 'Offline';
+    el.className = 'conn-status conn-err';
+  }
 }
 
-function loadDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(DB_STORE);
-    req.onsuccess = e => {
-      const tx = e.target.result.transaction(DB_STORE, 'readonly');
-      const get = tx.objectStore(DB_STORE).get('db');
-      get.onsuccess = () => resolve(get.result || null);
-      get.onerror = () => reject(get.error);
-    };
-    req.onerror = () => reject(req.error);
-  });
+// ─── Load Data ───
+
+async function loadStats() {
+  const data = await fetch(API + '/api/reorder-list/stats').then(r => r.json());
+  document.getElementById('statRequested').textContent = data.requested || 0;
+  document.getElementById('statOrdered').textContent = data.ordered || 0;
+  document.getElementById('statReceived').textContent = data.received || 0;
+  document.getElementById('filterRequested').textContent = data.requested ? `(${data.requested})` : '';
+  document.getElementById('filterOrdered').textContent = data.ordered ? `(${data.ordered})` : '';
+  document.getElementById('filterReceived').textContent = data.received ? `(${data.received})` : '';
 }
 
-async function initDatabase() {
-  const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+async function loadPriceCount() {
+  const data = await fetch(API + '/api/pricelist/count').then(r => r.json());
+  document.getElementById('priceStatus').textContent = data.count ? `${data.count.toLocaleString()} SKUs` : 'No price list';
+}
 
-  const saved = await loadDB();
-  if (saved) {
-    db = new SQL.Database(saved);
+async function loadOrders() {
+  // Always fetch all orders for duplicate checking
+  const allData = await fetch(API + '/api/reorder-list').then(r => r.json());
+  allOrdersUnfiltered = allData.orders || [];
+  // Apply filter for display
+  if (currentFilter !== 'all') {
+    allOrders = allOrdersUnfiltered.filter(o => o.status === currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1));
   } else {
-    db = new SQL.Database();
+    allOrders = allOrdersUnfiltered;
   }
-
-  db.run(`CREATE TABLE IF NOT EXISTS sku_pricelist (
-    sku TEXT PRIMARY KEY, item_name TEXT DEFAULT '', stock REAL DEFAULT 0, price REAL DEFAULT 0
-  )`);
-  db.run(`CREATE TABLE IF NOT EXISTS order_list (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sku TEXT NOT NULL, requested_by TEXT DEFAULT '', times_requested INTEGER DEFAULT 1,
-    current_stock REAL DEFAULT 0, suggested_qty INTEGER DEFAULT 0, production_qty INTEGER DEFAULT 0,
-    original_cost REAL DEFAULT 0, new_cost REAL DEFAULT 0,
-    status TEXT DEFAULT 'Requested', notes TEXT DEFAULT '',
-    created_at TEXT, ordered_at TEXT, received_at TEXT
-  )`);
-
-  // Check if pricelist is empty → import from JSON
-  const count = db.exec(`SELECT COUNT(*) FROM sku_pricelist`);
-  const plCount = count[0]?.values[0][0] || 0;
-  if (plCount === 0) {
-    try {
-      const resp = await fetch('sku-data.json');
-      if (resp.ok) {
-        const rows = await resp.json();
-        for (const [sku, stock, price] of rows) {
-          db.run(`INSERT OR REPLACE INTO sku_pricelist (sku, stock, price) VALUES (?, ?, ?)`, [sku, stock, price]);
-        }
-        await saveDB();
-        console.log(`Imported ${rows.length} SKUs`);
-      }
-    } catch (e) { console.log('No sku-data.json found'); }
-  }
-
-  const plResult = db.exec(`SELECT COUNT(*) FROM sku_pricelist`);
-  const total = plResult[0]?.values[0][0] || 0;
-  document.getElementById('skuCount').textContent = total ? `${total.toLocaleString()} SKUs` : 'No price list';
-
-  document.getElementById('loadingScreen').style.display = 'none';
-  document.getElementById('mainContent').style.display = '';
-  loadOrders();
-  document.getElementById('addSku').focus();
-}
-
-// ─── QUERY HELPERS ───
-function queryAll(sql) {
-  const data = db.exec(sql);
-  if (!data.length) return [];
-  const cols = data[0].columns;
-  return data[0].values.map(row => { const o = {}; cols.forEach((c, i) => o[c] = row[i]); return o; });
-}
-
-function today() { return new Date().toISOString().split('T')[0]; }
-
-// ─── LOAD & RENDER ───
-function loadStats() {
-  const r = db.exec(`SELECT status, COUNT(*) as c FROM order_list GROUP BY status`);
-  const counts = { Requested: 0, Ordered: 0, Received: 0 };
-  if (r.length) r[0].values.forEach(v => counts[v[0]] = v[1]);
-  document.getElementById('statRequested').textContent = counts.Requested;
-  document.getElementById('statOrdered').textContent = counts.Ordered;
-  document.getElementById('statReceived').textContent = counts.Received;
-  document.getElementById('filterRequested').textContent = counts.Requested ? `(${counts.Requested})` : '';
-  document.getElementById('filterOrdered').textContent = counts.Ordered ? `(${counts.Ordered})` : '';
-  document.getElementById('filterReceived').textContent = counts.Received ? `(${counts.Received})` : '';
-}
-
-function loadOrders() {
-  let sql = `SELECT ol.*, COALESCE(sp.item_name, '') as item_name
-    FROM order_list ol LEFT JOIN sku_pricelist sp ON ol.sku = sp.sku`;
-  if (currentFilter !== 'all') sql += ` WHERE ol.status = '${currentFilter}'`;
-  sql += ` ORDER BY CASE ol.status WHEN 'Requested' THEN 0 WHEN 'Ordered' THEN 1 WHEN 'Received' THEN 2 END, ol.created_at DESC`;
-
-  const orders = queryAll(sql);
-  renderTable(orders);
+  renderTable();
   loadStats();
 }
 
-function renderTable(orders) {
+function applySearch() {
+  renderTable();
+}
+
+function renderTable() {
   const tbody = document.getElementById('orderBody');
-  if (!orders.length) {
-    tbody.innerHTML = `<tr><td colspan="15" class="empty-msg">No items yet. Add SKUs above to get started.</td></tr>`;
-    document.getElementById('rowCount').textContent = '';
-    updateSelectionInfo();
+  const searchQ = (document.getElementById('orderSearch')?.value || '').trim().toUpperCase();
+  let display = allOrders;
+  if (searchQ) display = display.filter(o => (o.sku || '').toUpperCase().includes(searchQ));
+
+  if (!display.length) {
+    tbody.innerHTML = `<tr><td colspan="14" class="empty-msg">${searchQ ? 'No matching SKUs' : 'No items yet. Add SKUs above to get started.'}</td></tr>`;
+    document.getElementById('rowCount').textContent = searchQ ? `0 of ${allOrders.length} items` : '';
     return;
   }
 
-  tbody.innerHTML = orders.map(o => {
-    const isReq = o.status === 'Requested';
-    const isOrd = o.status === 'Ordered';
-    const isRcv = o.status === 'Received';
-    const stockClass = o.current_stock > 0 ? 'color:var(--success)' : 'color:var(--error)';
-    const badgeClass = isReq ? 'badge-requested' : isOrd ? 'badge-ordered' : 'badge-received';
-    const checked = selectedIds.has(o.id) ? 'checked' : '';
-    const rowClass = selectedIds.has(o.id) ? 'selected' : '';
-    const ordDate = o.ordered_at ? (o.ordered_at.split(' ')[0] || o.ordered_at.split('T')[0]) : '';
+  document.getElementById('rowCount').textContent = searchQ ? `${display.length} of ${allOrders.length} items` : `${display.length} items`;
+
+  tbody.innerHTML = display.map(o => {
+    const isRequested = o.status === 'Requested';
+    const isOrdered = o.status === 'Ordered';
+    const isReceived = o.status === 'Received';
+    const stockClass = o.current_stock > 0 ? 'stock-ok' : 'stock-oos';
+    const badgeClass = isRequested ? 'badge-requested' : isOrdered ? 'badge-ordered' : 'badge-received';
+
+    const orderedDate = o.ordered_at ? o.ordered_at.split(' ')[0] || o.ordered_at.split('T')[0] : '';
 
     let actions = '';
-    if (isReq) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered">Order</button> <button class="btn btn-red" onclick="deleteItem(${o.id})">&times;</button>`;
-    else if (isOrd) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})">&times;</button>`;
+    if (isRequested) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered">Order</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button>`;
+    else if (isOrdered) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})" title="Mark Received">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button>`;
 
-    return `<tr class="${rowClass}">
-      <td><input type="checkbox" class="row-check" ${checked} onchange="toggleSelect(${o.id},this.checked)"></td>
+    return `<tr>
       <td class="sku-cell">${o.sku}</td>
-      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="${o.item_name}">${o.item_name}</td>
-      <td class="check-col">${isOrd ? '<span style="color:var(--orange)">&#10003;</span>' : isRcv ? '<span style="color:var(--success)">&#10003;</span>' : ''}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="${o.item_name || ''}">${o.item_name || ''}</td>
+      <td class="check-col">${isOrdered ? '<span style="color:var(--orange)">&#10003;</span>' : isReceived ? '<span style="color:var(--green)">&#10003;</span>' : ''}</td>
       <td style="font-size:12px">${o.requested_by || ''}</td>
-      <td style="text-align:center;font-weight:700">${o.times_requested || 1}</td>
-      <td style="text-align:center"><span style="${stockClass};font-size:12px;font-weight:600">${o.current_stock > 0 ? Math.floor(o.current_stock) : 'OOS'}</span></td>
-      <td style="text-align:center">${isReq ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="0" onchange="updateItem(${o.id},'suggested_qty',this.value)">` : (o.suggested_qty || '-')}</td>
-      <td style="text-align:center">${isReq || isOrd ? `<input class="inline-num" type="number" value="${o.production_qty || ''}" placeholder="0" onchange="updateItem(${o.id},'production_qty',this.value)">` : (o.production_qty || '-')}</td>
+      <td class="times-col">${o.times_requested || 1}</td>
+      <td class="stock-col"><span class="stock-val ${stockClass}">${o.current_stock > 0 ? Math.floor(o.current_stock) : 'OOS'}</span></td>
+      <td style="text-align:center">${isRequested ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="0" onchange="updateOrder(${o.id},'suggested_qty',this.value)">` : (o.suggested_qty || '-')}</td>
+      <td style="text-align:center">${isRequested || isOrdered ? `<input class="inline-num" type="number" value="${o.production_qty || ''}" placeholder="0" onchange="updateOrder(${o.id},'production_qty',this.value)">` : (o.production_qty || '-')}</td>
       <td style="text-align:right;font-size:12px;color:var(--text-light)">${o.original_cost ? '$' + o.original_cost.toFixed(2) : '-'}</td>
-      <td style="text-align:right">${isReq || isOrd ? `<input class="inline-cost" type="number" step="0.01" value="${o.new_cost || ''}" placeholder="$0.00" onchange="updateItem(${o.id},'new_cost',this.value)">` : (o.new_cost ? '$' + o.new_cost.toFixed(2) : '-')}</td>
+      <td style="text-align:right">${isRequested || isOrdered ? `<input class="inline-cost" type="number" step="0.01" value="${o.new_cost || ''}" placeholder="$0.00" onchange="updateOrder(${o.id},'new_cost',this.value)">` : (o.new_cost ? '$' + o.new_cost.toFixed(2) : '-')}</td>
       <td><span class="badge ${badgeClass}">${o.status}</span></td>
-      <td>${isReq ? `<input class="inline-date" type="date" value="${today()}" id="date-${o.id}">` : (isOrd ? `<span style="font-size:12px">${ordDate}</span>` : (ordDate ? `<span style="font-size:12px;color:var(--text-light)">${ordDate}</span>` : ''))}</td>
-      <td>${isReq || isOrd ? `<input class="inline-notes" type="text" value="${(o.notes || '').replace(/"/g,'&quot;')}" placeholder="..." onchange="updateItem(${o.id},'notes',this.value)">` : (o.notes || '')}</td>
+      <td style="font-size:12px;color:var(--text-light)">${orderedDate}</td>
+      <td><button class="btn btn-outline" style="font-size:11px;padding:3px 8px;${o.notes ? 'color:var(--accent);border-color:var(--accent);' : ''}" onclick="openNotesModal(${o.id})">${o.notes ? (o.notes.length > 20 ? o.notes.substring(0,20)+'...' : o.notes) : 'Notes'}</button></td>
       <td style="white-space:nowrap">${actions}</td>
     </tr>`;
   }).join('');
-
-  document.getElementById('rowCount').textContent = `${orders.length} items`;
-  updateSelectionInfo();
 }
 
-// ─── SELECTION ───
-function toggleSelect(id, checked) {
-  if (checked) selectedIds.add(id); else selectedIds.delete(id);
-  loadOrders();
-}
+// ─── Actions ───
 
-function toggleSelectAll(checked) {
-  const rows = document.querySelectorAll('#orderBody .row-check');
-  rows.forEach(cb => {
-    const id = parseInt(cb.onchange.toString().match(/toggleSelect\((\d+)/)?.[1]);
-    if (id) { if (checked) selectedIds.add(id); else selectedIds.delete(id); }
-  });
-  loadOrders();
-}
-
-function updateSelectionInfo() {
-  const el = document.getElementById('selectionInfo');
-  el.textContent = selectedIds.size ? `${selectedIds.size} selected` : '';
-}
-
-// ─── ACTIONS ───
-function addToList() {
+async function addToList() {
   const skuInput = document.getElementById('addSku');
+  const byInput = document.getElementById('addBy');
+  const notesInput = document.getElementById('addNotes');
   const sku = skuInput.value.trim().toUpperCase();
   if (!sku) { skuInput.focus(); return; }
-  const by = document.getElementById('addBy').value.trim();
-  const notes = document.getElementById('addNotes').value.trim();
 
-  // Check duplicate
-  const existing = db.exec(`SELECT id, times_requested, requested_by FROM order_list WHERE sku = '${sku.replace(/'/g,"''")}' AND status = 'Requested'`);
-  if (existing.length && existing[0].values.length) {
-    const [id, times, oldBy] = existing[0].values[0];
-    const newBy = by ? (oldBy ? oldBy + ', ' + by : by) : oldBy;
-    db.run(`UPDATE order_list SET times_requested = ?, requested_by = ? WHERE id = ?`, [times + 1, newBy, id]);
-  } else {
-    const pl = db.exec(`SELECT stock, price FROM sku_pricelist WHERE sku = '${sku.replace(/'/g,"''")}'`);
-    const stock = pl.length && pl[0].values.length ? pl[0].values[0][0] || 0 : 0;
-    const price = pl.length && pl[0].values.length ? pl[0].values[0][1] || 0 : 0;
-    db.run(`INSERT INTO order_list (sku, requested_by, current_stock, original_cost, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-      [sku, by, stock, price, notes, new Date().toISOString()]);
+  const requested_by = byInput.value.trim();
+  const notes = notesInput.value.trim();
+
+  // Check if SKU is already on order
+  const existing = allOrdersUnfiltered.find(o => o.sku === sku && (o.status === 'Ordered' || o.status === 'Requested'));
+  if (existing) {
+    const orderDate = existing.ordered_at ? (existing.ordered_at.split(' ')[0] || existing.ordered_at.split('T')[0]) : 'unknown date';
+    const qty = existing.production_qty || existing.suggested_qty || '?';
+    document.getElementById('confirmDetail').innerHTML =
+      `<strong>${sku}</strong> is currently on order.<br><br>` +
+      `<strong>Date Ordered:</strong> ${orderDate}<br>` +
+      `<strong>Qty Ordered:</strong> ${qty} units<br>` +
+      `<strong>Status:</strong> <span style="color:var(--orange);font-weight:700;">${existing.status}</span><br><br>` +
+      `Are you sure you want to request this SKU again?`;
+    pendingReorder = { sku, requested_by, notes };
+    document.getElementById('confirmModal').classList.add('open');
+    return;
   }
 
-  saveDB();
-  skuInput.value = ''; document.getElementById('addNotes').value = '';
-  closeAc(); skuInput.focus();
+  doAddToList(sku, requested_by, notes);
+}
+
+async function updateOrder(id, field, value) {
+  const body = {};
+  body[field] = value;
+  await fetch(API + '/api/reorder-list/' + id, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+}
+
+async function markOrdered(id) {
+  await fetch(API + '/api/reorder-list/' + id + '/mark-ordered', { method: 'POST' });
   loadOrders();
 }
 
-function updateItem(id, field, value) {
-  if (field === 'production_qty' || field === 'suggested_qty') value = parseInt(value) || 0;
-  else if (field === 'new_cost') value = parseFloat(value) || 0;
-  db.run(`UPDATE order_list SET ${field} = ? WHERE id = ?`, [value, id]);
-  saveDB();
+async function markReceived(id) {
+  await fetch(API + '/api/reorder-list/' + id + '/mark-received', { method: 'POST' });
+  loadOrders();
 }
 
-function markOrdered(id) {
-  const dateInput = document.getElementById('date-' + id);
-  const dateVal = dateInput ? dateInput.value : today();
-  db.run(`UPDATE order_list SET status = 'Ordered', ordered_at = ? WHERE id = ? AND status = 'Requested'`, [dateVal, id]);
-  saveDB(); loadOrders();
-}
-
-function markReceived(id) {
-  db.run(`UPDATE order_list SET status = 'Received', received_at = ? WHERE id = ? AND status = 'Ordered'`, [new Date().toISOString(), id]);
-  saveDB(); loadOrders();
-}
-
-function deleteItem(id) {
-  if (!confirm('Remove this item?')) return;
-  db.run(`DELETE FROM order_list WHERE id = ? AND status != 'Received'`, [id]);
-  selectedIds.delete(id);
-  saveDB(); loadOrders();
+async function deleteItem(id) {
+  if (!confirm('Remove this item from the list?')) return;
+  await fetch(API + '/api/reorder-list/' + id, { method: 'DELETE' });
+  loadOrders();
 }
 
 function setFilter(status, btn) {
@@ -454,26 +416,20 @@ function setFilter(status, btn) {
   loadOrders();
 }
 
-// ─── AUTOCOMPLETE ───
-function onSkuInput(val) {
+// ─── Autocomplete ───
+
+async function onSkuInput(val) {
   val = val.trim().toUpperCase();
   const list = document.getElementById('acList');
   if (!val || val.length < 2) { list.classList.remove('open'); acMatches = []; acIndex = -1; return; }
 
-  const data = db.exec(`SELECT sku, item_name, stock, price FROM sku_pricelist WHERE sku LIKE '${val.replace(/'/g,"''")}%' ORDER BY sku LIMIT 12`);
-  acMatches = data.length ? data[0].values.map(r => ({ sku: r[0], name: r[1] || '', stock: r[2] || 0, price: r[3] || 0 })) : [];
-
-  // Add substring matches
-  if (acMatches.length < 12) {
-    const existing = new Set(acMatches.map(r => r.sku));
-    const more = db.exec(`SELECT sku, item_name, stock, price FROM sku_pricelist WHERE sku LIKE '%${val.replace(/'/g,"''")}%' AND sku NOT LIKE '${val.replace(/'/g,"''")}%' ORDER BY sku LIMIT ${12 - acMatches.length}`);
-    if (more.length) more[0].values.forEach(r => { if (!existing.has(r[0])) acMatches.push({ sku: r[0], name: r[1] || '', stock: r[2] || 0, price: r[3] || 0 }); });
-  }
-
+  const data = await fetch(API + '/api/pricelist/search?q=' + encodeURIComponent(val)).then(r => r.json());
+  acMatches = data.results || [];
   acIndex = -1;
+
   if (!acMatches.length) { list.classList.remove('open'); return; }
 
-  list.innerHTML = acMatches.map((s, i) => `<div class="ac-item" onmousedown="selectAc(${i})">
+  list.innerHTML = acMatches.map((s, i) => `<div class="ac-item" data-i="${i}" onmousedown="selectAc(${i})">
     <span class="ac-sku">${s.sku}</span>
     <span>${s.price ? '<span class="ac-price">$' + s.price.toFixed(2) + '</span>' : ''} <span class="ac-stock">${s.stock > 0 ? Math.floor(s.stock) + ' on hand' : 'OOS'}</span></span>
   </div>`).join('');
@@ -482,140 +438,161 @@ function onSkuInput(val) {
 
 function onSkuKeydown(e) {
   const list = document.getElementById('acList');
-  if (!list.classList.contains('open')) { if (e.key === 'Enter') { e.preventDefault(); addToList(); } return; }
+  if (!list.classList.contains('open')) {
+    if (e.key === 'Enter') { e.preventDefault(); addToList(); }
+    return;
+  }
   if (e.key === 'ArrowDown') { e.preventDefault(); acIndex = Math.min(acIndex + 1, acMatches.length - 1); highlightAc(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); acIndex = Math.max(acIndex - 1, 0); highlightAc(); }
-  else if (e.key === 'Enter' || e.key === 'Tab') { if (acIndex >= 0) { e.preventDefault(); selectAc(acIndex); } else if (e.key === 'Enter') { e.preventDefault(); closeAc(); addToList(); } }
+  else if (e.key === 'Enter' || e.key === 'Tab') {
+    if (acIndex >= 0) { e.preventDefault(); selectAc(acIndex); }
+    else if (e.key === 'Enter') { e.preventDefault(); closeAc(); addToList(); }
+  }
   else if (e.key === 'Escape') closeAc();
 }
 
 function highlightAc() {
   document.querySelectorAll('.ac-item').forEach((el, i) => el.classList.toggle('active', i === acIndex));
-  const a = document.querySelector('.ac-item.active'); if (a) a.scrollIntoView({ block: 'nearest' });
+  const active = document.querySelector('.ac-item.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
 }
 
 function selectAc(i) {
-  if (!acMatches[i]) return;
-  document.getElementById('addSku').value = acMatches[i].sku;
-  closeAc(); document.getElementById('addBy').focus();
+  const s = acMatches[i];
+  if (!s) return;
+  document.getElementById('addSku').value = s.sku;
+  closeAc();
+  document.getElementById('addBy').focus();
 }
 
-function closeAc() { document.getElementById('acList').classList.remove('open'); acMatches = []; acIndex = -1; }
+function closeAc() {
+  document.getElementById('acList').classList.remove('open');
+  acMatches = []; acIndex = -1;
+}
 
-// ─── UPLOAD PRICES ───
-function uploadPriceFile(file) {
+// ─── Upload Prices ───
+
+async function uploadPriceFile(file) {
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      if (!rows.length) return alert('Empty file');
+  const buf = await file.arrayBuffer();
+  const resp = await fetch(API + '/api/pricelist/import', {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: buf,
+  }).then(r => r.json());
 
-      const header = rows[0].map(h => (h || '').toString().toLowerCase().trim());
-      let skuCol = 0, qtyCol = 1, priceCol = 2;
-      const si = header.findIndex(h => h.includes('sku') || h.includes('entry name'));
-      const qi = header.findIndex(h => h.includes('quantity') || h.includes('qty'));
-      const pi = header.findIndex(h => h.includes('price') || h.includes('cost'));
-      if (si >= 0) skuCol = si; if (qi >= 0) qtyCol = qi; if (pi >= 0) priceCol = pi;
-
-      db.run(`DELETE FROM sku_pricelist`);
-      let count = 0;
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        const sku = (row[skuCol] || '').toString().trim().toUpperCase();
-        if (!sku || sku === 'JEWELRY' || sku === 'TOYS') continue;
-        db.run(`INSERT OR REPLACE INTO sku_pricelist (sku, stock, price) VALUES (?, ?, ?)`,
-          [sku, parseFloat(row[qtyCol]) || 0, parseFloat(row[priceCol]) || 0]);
-        count++;
-      }
-      saveDB();
-      document.getElementById('skuCount').textContent = `${count.toLocaleString()} SKUs`;
-      alert(`Imported ${count} SKUs`);
-    } catch (err) { alert('Error: ' + err.message); }
-  };
-  reader.readAsArrayBuffer(file);
+  if (resp.error) return alert('Import error: ' + resp.error);
+  alert(`Imported ${resp.imported} SKUs`);
+  loadPriceCount();
 }
 
-// ─── EXPORT ───
+// ─── Export ───
+
 function downloadExcel() {
-  let sql = `SELECT ol.*, COALESCE(sp.item_name, '') as item_name
-    FROM order_list ol LEFT JOIN sku_pricelist sp ON ol.sku = sp.sku`;
-  if (currentFilter !== 'all') sql += ` WHERE ol.status = '${currentFilter}'`;
-  sql += ` ORDER BY ol.created_at DESC`;
-  let orders = queryAll(sql);
-
-  // Filter to selected only if any are selected
-  if (selectedIds.size > 0) {
-    orders = orders.filter(o => selectedIds.has(o.id));
-  }
-  if (!orders.length) return alert('No items to export');
-
-  const date = today();
+  if (!allOrders.length) return alert('No items to export');
+  const date = new Date().toISOString().split('T')[0];
   const wsData = [
     ['REORDER LIST — ' + date],
     [],
-    ['SKU', 'Item Name', 'On Order?', 'Requested By', 'Times Requested', 'Current Stock',
-     'Suggested Qty', 'Production Qty', 'Original Cost', 'New Cost', 'Status', 'Date Ordered', 'Notes'],
+    ['SKU', 'Item Name', 'On Order?', 'Requested By', 'Times Requested', 'Current Stock', 'Suggested Qty', 'Production Qty', 'Original Cost', 'New Cost', 'Status', 'Notes'],
   ];
-  for (const o of orders) {
-    const ordDate = o.ordered_at ? (o.ordered_at.split(' ')[0] || o.ordered_at.split('T')[0]) : '';
-    wsData.push([o.sku, o.item_name || '', o.status === 'Ordered' ? 'Yes' : '', o.requested_by || '',
+  for (const o of allOrders) {
+    wsData.push([
+      o.sku, o.item_name || '', o.status === 'Ordered' ? 'Yes' : '', o.requested_by || '',
       o.times_requested || 1, o.current_stock || 0, o.suggested_qty || '', o.production_qty || '',
-      o.original_cost || '', o.new_cost || '', o.status, ordDate, o.notes || '']);
+      o.original_cost || '', o.new_cost || '', o.status, o.notes || '',
+    ]);
   }
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{wch:18},{wch:24},{wch:10},{wch:14},{wch:6},{wch:8},{wch:10},{wch:12},{wch:10},{wch:10},{wch:10},{wch:12},{wch:20}];
+  ws['!cols'] = [{wch:18},{wch:24},{wch:10},{wch:14},{wch:6},{wch:8},{wch:10},{wch:12},{wch:10},{wch:10},{wch:10},{wch:20}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Reorder List');
   XLSX.writeFile(wb, `Reorder-List-${date}.xlsx`);
 }
 
-function getExportOrders() {
-  let sql = `SELECT ol.*, COALESCE(sp.item_name, '') as item_name
-    FROM order_list ol LEFT JOIN sku_pricelist sp ON ol.sku = sp.sku`;
-  if (currentFilter !== 'all') sql += ` WHERE ol.status = '${currentFilter}'`;
-  let orders = queryAll(sql);
-  if (selectedIds.size > 0) orders = orders.filter(o => selectedIds.has(o.id));
-  return orders;
-}
-
 function copyList() {
-  const orders = getExportOrders();
-  if (!orders.length) return alert('No items to copy');
-
-  let text = '';
-  for (const o of orders) {
-    const qty = o.production_qty || o.suggested_qty || 0;
-    text += `${o.sku} - ${qty}\n`;
+  if (!allOrders.length) return alert('No items to copy');
+  let text = 'SKU\tItem Name\tOn Order\tRequested By\tTimes\tStock\tSuggested\tProduction Qty\tOriginal Cost\tNew Cost\tStatus\tNotes\n';
+  for (const o of allOrders) {
+    text += `${o.sku}\t${o.item_name || ''}\t${o.status === 'Ordered' ? 'Yes' : ''}\t${o.requested_by || ''}\t${o.times_requested || 1}\t${o.current_stock || 0}\t${o.suggested_qty || ''}\t${o.production_qty || ''}\t${o.original_cost ? '$'+o.original_cost.toFixed(2) : ''}\t${o.new_cost ? '$'+o.new_cost.toFixed(2) : ''}\t${o.status}\t${o.notes || ''}\n`;
   }
-  navigator.clipboard.writeText(text.trim()).then(() => {
+  navigator.clipboard.writeText(text).then(() => {
     const btn = document.querySelector('[onclick="copyList()"]');
-    btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy SKU List', 1500);
+    btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500);
   });
 }
 
-function downloadTxt() {
-  const orders = getExportOrders();
-  if (!orders.length) return alert('No items to export');
+// ─── Notes Modal ───
+let notesModalId = null;
 
-  let text = '';
-  for (const o of orders) {
-    const qty = o.production_qty || o.suggested_qty || 0;
-    text += `${o.sku} - ${qty}\n`;
-  }
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Reorder-List-${today()}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+function openNotesModal(id) {
+  const order = allOrdersUnfiltered.find(o => o.id === id);
+  if (!order) return;
+  notesModalId = id;
+  const editable = order.status === 'Requested' || order.status === 'Ordered';
+  document.getElementById('notesModalTitle').textContent = `Notes — ${order.sku}`;
+  const textarea = document.getElementById('notesModalText');
+  textarea.value = order.notes || '';
+  textarea.readOnly = !editable;
+  textarea.style.background = editable ? '#fff' : '#f7fafc';
+  document.querySelector('#notesModal .modal-footer').style.display = editable ? 'flex' : 'none';
+  document.getElementById('notesModal').classList.add('open');
+  textarea.focus();
 }
 
-// ─── INIT ───
-initDatabase().catch(e => { console.error(e); document.getElementById('loadingScreen').innerHTML = 'Error: ' + e.message; });
+function closeNotesModal() {
+  document.getElementById('notesModal').classList.remove('open');
+  notesModalId = null;
+}
+
+async function saveNotesModal() {
+  if (notesModalId === null) return;
+  const notes = document.getElementById('notesModalText').value;
+  await fetch(API + '/api/reorder-list/' + notesModalId, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notes }),
+  });
+  closeNotesModal();
+  loadOrders();
+}
+
+// Close modal on overlay click or Escape
+document.getElementById('notesModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeNotesModal(); });
+document.getElementById('confirmModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeConfirmModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeNotesModal(); closeConfirmModal(); }
+});
+
+// ─── Duplicate SKU Confirm ───
+let pendingReorder = null;
+
+function closeConfirmModal() {
+  document.getElementById('confirmModal').classList.remove('open');
+  pendingReorder = null;
+}
+
+function confirmReorder() {
+  if (!pendingReorder) return;
+  const { sku, requested_by, notes } = pendingReorder;
+  closeConfirmModal();
+  doAddToList(sku, requested_by, notes);
+}
+
+async function doAddToList(sku, requested_by, notes) {
+  await fetch(API + '/api/reorder-list', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sku, requested_by, notes }),
+  });
+  document.getElementById('addSku').value = '';
+  document.getElementById('addNotes').value = '';
+  closeAc();
+  document.getElementById('addSku').focus();
+  loadOrders();
+}
+
+// ─── Init ───
+checkConnection();
+loadPriceCount();
+loadOrders();
+document.getElementById('addSku').focus();
 </script>
 </body>
 </html>
