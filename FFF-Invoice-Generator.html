@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FFF Invoice Generator</title>
+  <title>Fab Fit Fun</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
@@ -133,7 +133,7 @@
 <body>
 
 <header>
-  <h1>FFF Invoice Generator</h1>
+  <h1>Fab Fit Fun</h1>
   <span>The Daas Group</span>
   <div class="header-actions">
     <button class="header-btn save" onclick="saveAllData()">Save Data</button>
@@ -145,6 +145,7 @@
   <button class="tab-btn active" onclick="switchTab('generate')">Generate Invoice</button>
   <button class="tab-btn" onclick="switchTab('master')">Master Sheet</button>
   <button class="tab-btn" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('linesheet')">Line Sheet</button>
 </div>
 
 <!-- GENERATE TAB -->
@@ -305,6 +306,39 @@
       </thead>
       <tbody id="dashBody"></tbody>
     </table>
+  </div>
+</div>
+</div>
+
+<!-- LINE SHEET TAB -->
+<div id="tab-linesheet" class="tab-content">
+<div class="container">
+  <div class="card">
+    <h2>Line Sheet Generator</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:16px;">
+      Generate brand line sheets for Fab Fit Fun pitches and submissions. Drop SKUs (or upload a list) and the generator pulls the latest images, MSRP, inventory, and product details from Shopify and Walmart automatically.
+    </p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+      <a href="https://conservational-unvaccinated-dotty.ngrok-free.dev/linesheet" target="_blank" rel="noopener"
+         style="display:inline-block;background:#FF4D8D;color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">
+        Open Line Sheet Generator →
+      </a>
+      <span style="font-size:12px;color:#888;">(opens in a new tab — Walmart Portal login required)</span>
+    </div>
+
+    <div style="margin-top:24px;padding:16px;background:#FAF6F1;border-radius:8px;border-left:4px solid #FF4D8D;">
+      <h3 style="margin:0 0 8px 0;font-size:15px;color:#3B2F2F;">What's included in each line sheet</h3>
+      <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#555;">
+        <li><strong>Image</strong> — high-res product photo from Shopify (centered in cell)</li>
+        <li><strong>Brand</strong> — defaults to Scarlett and Ella (editable)</li>
+        <li><strong>Product title</strong> — SEO-rewritten, brand-prefixed</li>
+        <li><strong>SKU</strong> — exact match, with auto-grouped variants</li>
+        <li><strong>Description</strong> — pulled from Shopify with bullet features and grammar cleanup</li>
+        <li><strong>Available Units</strong> — live inventory from Shopify</li>
+        <li><strong>MSRP</strong> — Walmart compare-at price</li>
+        <li><strong>MAP / Cost to IDI / Weight / Dimensions</strong> — fields ready for manual fill</li>
+      </ul>
+    </div>
   </div>
 </div>
 </div>
