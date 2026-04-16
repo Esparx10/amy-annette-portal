@@ -310,37 +310,249 @@
 </div>
 </div>
 
-<!-- LINE SHEET TAB -->
+<!-- LINE SHEET TAB — embedded inline; calls walmart-portal API via ngrok -->
 <div id="tab-linesheet" class="tab-content">
-<div class="container">
-  <div class="card">
-    <h2>Line Sheet Generator</h2>
-    <p style="font-size:13px;color:#666;margin-bottom:16px;">
-      Generate brand line sheets for Fab Fit Fun pitches and submissions. Drop SKUs (or upload a list) and the generator pulls the latest images, MSRP, inventory, and product details from Shopify and Walmart automatically.
-    </p>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-      <a href="https://conservational-unvaccinated-dotty.ngrok-free.dev/linesheet" target="_blank" rel="noopener"
-         style="display:inline-block;background:#FF4D8D;color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">
-        Open Line Sheet Generator →
-      </a>
-      <span style="font-size:12px;color:#888;">(opens in a new tab — Walmart Portal login required)</span>
-    </div>
+<style>
+  #ls_root { --pink:#ff4d8d; --pink-dark:#d6336c; --pink-light:#ffe0ec; --ls-border:#e5e7eb; --ls-text:#1f2937; --ls-muted:#6b7280; }
+  #ls_root { padding: 20px; }
+  #ls_root .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  #ls_root .card-header { padding: 16px 20px; border-bottom: 1px solid var(--ls-border); }
+  #ls_root .card-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--ls-text); }
+  #ls_root .card-body { padding: 20px; }
+  #ls_root label { display: block; font-size: 13px; font-weight: 600; color: var(--ls-text); margin-bottom: 6px; }
+  #ls_root input[type=text], #ls_root textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--ls-border); border-radius: 8px; font-size: 14px; background: #fff; box-sizing: border-box; }
+  #ls_root input[type=text]:focus, #ls_root textarea:focus { outline: 2px solid var(--pink); outline-offset: -1px; border-color: var(--pink); }
+  #ls_root textarea { min-height: 200px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; resize: vertical; }
+  #ls_root .help { font-size: 12px; color: var(--ls-muted); margin-top: 6px; }
+  #ls_root .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width:720px) { #ls_root .grid2 { grid-template-columns: 1fr; } }
+  #ls_root .dropzone { border: 2px dashed #ffb3cf; background: var(--pink-light); border-radius: 10px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.15s; }
+  #ls_root .dropzone:hover, #ls_root .dropzone.drag { background: #ffd0e0; border-color: var(--pink); }
+  #ls_root .dropzone .icon { font-size: 32px; margin-bottom: 6px; }
+  #ls_root .dropzone .label { font-weight: 600; font-size: 14px; color: var(--pink-dark); }
+  #ls_root .dropzone .sub { font-size: 12px; color: var(--ls-muted); margin-top: 4px; }
+  #ls_root .file-name { font-size: 12px; color: var(--ls-text); margin-top: 8px; padding: 6px 10px; background: #fff; border-radius: 6px; display: none; }
+  #ls_root .toggle-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+  #ls_root .toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+  #ls_root .ls-btn { background: var(--pink); color: #fff; border: 0; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  #ls_root .ls-btn:hover { background: var(--pink-dark); }
+  #ls_root .ls-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #ls_root .ls-btn.ghost { background: transparent; color: var(--pink-dark); border: 1px solid var(--pink); }
+  #ls_root .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 20px; }
+  #ls_root .ls-status { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-top: 16px; display: none; }
+  #ls_root .ls-status.info { background: var(--pink-light); color: var(--pink-dark); display: block; }
+  #ls_root .ls-status.error { background: #fee2e2; color: #b91c1c; display: block; }
+  #ls_root .ls-status.ok { background: #d1fae5; color: #065f46; display: block; }
+  #ls_root .preview { margin-top: 16px; border: 1px solid var(--ls-border); border-radius: 8px; max-height: 480px; overflow: auto; }
+  #ls_root .preview table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #ls_root .preview th { background: var(--pink-light); color: var(--pink-dark); position: sticky; top: 0; padding: 8px; text-align: left; border-bottom: 1px solid var(--ls-border); }
+  #ls_root .preview td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
+  #ls_root .preview tr.variant { background: #fafafa; }
+  #ls_root .preview tr.variant td:first-child { padding-left: 24px; color: var(--ls-muted); font-style: italic; }
+  #ls_root .preview img { max-height: 50px; max-width: 50px; border-radius: 4px; }
+  #ls_root .ls-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: ls-spin 0.7s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes ls-spin { to { transform: rotate(360deg); } }
+  #ls_authNotice { background: #fff5f0; border: 1px solid #ffd5b3; padding: 10px 14px; border-radius: 8px; font-size: 12px; color: #8B4513; margin-bottom: 16px; display: none; }
+</style>
 
-    <div style="margin-top:24px;padding:16px;background:#FAF6F1;border-radius:8px;border-left:4px solid #FF4D8D;">
-      <h3 style="margin:0 0 8px 0;font-size:15px;color:#3B2F2F;">What's included in each line sheet</h3>
-      <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#555;">
-        <li><strong>Image</strong> — high-res product photo from Shopify (centered in cell)</li>
-        <li><strong>Brand</strong> — defaults to Scarlett and Ella (editable)</li>
-        <li><strong>Product title</strong> — SEO-rewritten, brand-prefixed</li>
-        <li><strong>SKU</strong> — exact match, with auto-grouped variants</li>
-        <li><strong>Description</strong> — pulled from Shopify with bullet features and grammar cleanup</li>
-        <li><strong>Available Units</strong> — live inventory from Shopify</li>
-        <li><strong>MSRP</strong> — Walmart compare-at price</li>
-        <li><strong>MAP / Cost to IDI / Weight / Dimensions</strong> — fields ready for manual fill</li>
-      </ul>
+<div id="ls_root">
+  <div id="ls_authNotice">
+    ⚠️ Not authenticated to Walmart Portal. Please
+    <a href="https://conservational-unvaccinated-dotty.ngrok-free.dev/login" target="_blank" rel="noopener" style="color:#FF4D8D;font-weight:600;">log in here</a>
+    (admin/10111982), then come back and refresh this tab.
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Line Sheet Generator</h3></div>
+    <div class="card-body">
+      <div class="grid2">
+        <div>
+          <label>Paste SKUs (one per line)</label>
+          <textarea id="ls_skuList" placeholder="DEBS7476&#10;DEBS7209&#10;DBBS793-G&#10;..."></textarea>
+          <div class="help">One SKU per line. Variations of each SKU will be auto-discovered and grouped.</div>
+        </div>
+        <div>
+          <label>Or drop an Excel file</label>
+          <div class="dropzone" id="ls_dropzone">
+            <div class="icon">📁</div>
+            <div class="label">Click or drag .xlsx file here</div>
+            <div class="sub">SKUs read from column D (or first column with SKU-like values)</div>
+          </div>
+          <input type="file" id="ls_fileInput" accept=".xlsx,.xls,.csv" style="display:none">
+          <div class="file-name" id="ls_fileName"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <label>Brand name</label>
+          <input type="text" id="ls_brand" value="Scarlett and Ella">
+        </div>
+        <div>
+          <label>Output filename</label>
+          <input type="text" id="ls_filename" value="Scarlett-and-Ella-Line-Sheet.xlsx">
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="ls_includeVariants" checked> Auto-include variations</label>
+        <label class="toggle"><input type="checkbox" id="ls_pullImages" checked> Embed Shopify images</label>
+        <label class="toggle"><input type="checkbox" id="ls_pullQty" checked> Pull Shopify inventory</label>
+        <label class="toggle"><input type="checkbox" id="ls_useCompareAt" checked> MSRP from compare-at</label>
+      </div>
+
+      <div class="actions">
+        <button class="ls-btn" id="ls_genBtn">Generate Line Sheet</button>
+        <button class="ls-btn ghost" id="ls_previewBtn">Preview Only</button>
+        <span class="help" id="ls_counter"></span>
+      </div>
+
+      <div class="ls-status" id="ls_status"></div>
+    </div>
+  </div>
+
+  <div class="card" id="ls_previewCard" style="display:none;">
+    <div class="card-header"><h3>Preview</h3></div>
+    <div class="card-body">
+      <div class="preview" id="ls_previewBox"></div>
     </div>
   </div>
 </div>
+
+<script>
+(function(){
+  const LS_API_BASE = 'https://conservational-unvaccinated-dotty.ngrok-free.dev';
+  const $ = id => document.getElementById(id);
+  const dz = $('ls_dropzone'), fi = $('ls_fileInput'), fn = $('ls_fileName');
+  let uploadedFile = null;
+
+  dz.addEventListener('click', () => fi.click());
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag');
+    if (e.dataTransfer.files.length) { uploadedFile = e.dataTransfer.files[0]; fn.style.display='block'; fn.textContent='📄 ' + uploadedFile.name; }
+  });
+  fi.addEventListener('change', e => {
+    if (e.target.files.length) { uploadedFile = e.target.files[0]; fn.style.display='block'; fn.textContent='📄 ' + uploadedFile.name; }
+  });
+
+  $('ls_skuList').addEventListener('input', updateCounter);
+  function updateCounter() {
+    const lines = $('ls_skuList').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    $('ls_counter').textContent = lines.length ? `${lines.length} SKU${lines.length>1?'s':''} entered` : '';
+  }
+
+  function setStatus(msg, type='info') {
+    const s = $('ls_status'); s.className = 'ls-status ' + type; s.textContent = msg;
+  }
+
+  async function buildPayload() {
+    let skus = $('ls_skuList').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if (uploadedFile && !skus.length) {
+      if (!window.XLSX) await new Promise(r => { const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; s.onload=r; document.head.appendChild(s); });
+      const buf = await uploadedFile.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      if (!rows.length) throw new Error('Empty sheet');
+      const colCount = Math.max(...rows.map(r=>r.length));
+      let bestCol = 3, bestScore = 0;
+      for (let c=0; c<colCount; c++) {
+        let score = 0;
+        for (let r=1; r<Math.min(rows.length,30); r++) {
+          const v = String(rows[r][c]||'').trim();
+          if (/^[A-Z0-9][A-Z0-9 \-_]{2,30}$/i.test(v) && /[A-Z]/i.test(v) && /\d/.test(v)) score++;
+        }
+        if (score > bestScore) { bestScore = score; bestCol = c; }
+      }
+      skus = rows.slice(1).map(r => String(r[bestCol]||'').trim()).filter(Boolean);
+    }
+    return {
+      skus,
+      brand: $('ls_brand').value || 'Scarlett and Ella',
+      filename: $('ls_filename').value || 'line-sheet.xlsx',
+      includeVariants: $('ls_includeVariants').checked,
+      pullImages: $('ls_pullImages').checked,
+      pullQty: $('ls_pullQty').checked,
+      useCompareAt: $('ls_useCompareAt').checked,
+    };
+  }
+
+  $('ls_previewBtn').addEventListener('click', async () => {
+    $('ls_previewBtn').disabled = true;
+    setStatus('Building preview…', 'info');
+    try {
+      const payload = await buildPayload();
+      if (!payload.skus.length) throw new Error('No SKUs provided');
+      const res = await fetch(LS_API_BASE + '/api/linesheet/preview', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.status === 401 || res.redirected) {
+        $('ls_authNotice').style.display='block';
+        throw new Error('Not authenticated — see notice above.');
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Preview failed');
+      renderPreview(data.rows);
+      setStatus(`Preview ready: ${data.rows.length} rows (${data.added || 0} variants added)`, 'ok');
+    } catch (e) { setStatus('Error: ' + e.message, 'error'); }
+    $('ls_previewBtn').disabled = false;
+  });
+
+  function renderPreview(rows) {
+    $('ls_previewCard').style.display = 'block';
+    const html = ['<table><thead><tr><th>SKU</th><th>Image</th><th>Title</th><th>Qty</th><th>MSRP</th></tr></thead><tbody>'];
+    let lastProduct = null;
+    for (const r of rows) {
+      const isVariant = r.productId === lastProduct;
+      html.push(`<tr class="${isVariant?'variant':''}">
+        <td><strong>${r.displaySku || r.sku}</strong></td>
+        <td>${r.imageUrl ? `<img src="${r.imageUrl}">` : ''}</td>
+        <td>${r.title}</td>
+        <td>${r.qty ?? ''}</td>
+        <td>$${r.msrp || 0}</td>
+      </tr>`);
+      lastProduct = r.productId;
+    }
+    html.push('</tbody></table>');
+    $('ls_previewBox').innerHTML = html.join('');
+  }
+
+  $('ls_genBtn').addEventListener('click', async () => {
+    $('ls_genBtn').disabled = true;
+    $('ls_genBtn').innerHTML = '<span class="ls-spinner"></span>Generating…';
+    setStatus('Generating Excel file… this may take 20-60 seconds', 'info');
+    try {
+      const payload = await buildPayload();
+      if (!payload.skus.length) throw new Error('No SKUs provided');
+      const res = await fetch(LS_API_BASE + '/api/linesheet/generate', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.status === 401 || res.redirected) {
+        $('ls_authNotice').style.display='block';
+        throw new Error('Not authenticated — see notice above.');
+      }
+      if (!res.ok) {
+        const t = await res.text(); throw new Error(t || 'Generate failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = payload.filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      setStatus(`Downloaded ${payload.filename}`, 'ok');
+    } catch (e) { setStatus('Error: ' + e.message, 'error'); }
+    $('ls_genBtn').disabled = false;
+    $('ls_genBtn').textContent = 'Generate Line Sheet';
+  });
+})();
+</script>
 </div>
 
 <div id="toast" class="toast"></div>
