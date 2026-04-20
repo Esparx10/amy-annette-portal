@@ -615,6 +615,10 @@ body::before {
     <p>Manage shipments, sales, and operations across all channels.</p>
   </div>
 
+  <!-- Comparison pricing resubmit reminder — Walmart strikethroughs expire ~5 months
+       after upload. Populated by loadComparisonReminder() (state lives in localStorage). -->
+  <div id="comparisonPricingReminder" style="display:none;margin:0 0 24px;"></div>
+
   <h3 class="section-title">Your Apps</h3>
   <div class="app-grid" id="appGrid"></div>
 
@@ -756,6 +760,70 @@ function showPortal() {
   document.body.style.overflow = 'auto';
   document.body.style.paddingTop = '20px';
   renderApps();
+  loadComparisonReminder();
+}
+
+// ─── Comparison Pricing Resubmit Reminder ───
+// Walmart strikethrough / comparison prices stop showing after ~5 months and need
+// to be re-uploaded. State persists in localStorage (no backend on GitHub Pages).
+const CMP_PRICING_KEY = 'aa_cmp_pricing_last_submitted';
+const CMP_PRICING_INTERVAL_DAYS = 150;  // ≈ 5 months
+
+function getCmpPricingState() {
+  const lastSubmitted = localStorage.getItem(CMP_PRICING_KEY);
+  if (!lastSubmitted) return { status: 'unset', intervalDays: CMP_PRICING_INTERVAL_DAYS, lastSubmitted: null, daysUntilDue: null, dueDate: null };
+  const last = new Date(lastSubmitted);
+  const due = new Date(last.getTime() + CMP_PRICING_INTERVAL_DAYS * 86400000);
+  const dueDate = due.toISOString().slice(0, 10);
+  const daysUntilDue = Math.ceil((due - new Date()) / 86400000);
+  let status;
+  if (daysUntilDue < 0) status = 'overdue';
+  else if (daysUntilDue <= 30) status = 'due_soon';
+  else status = 'ok';
+  return { status, lastSubmitted, dueDate, daysUntilDue, intervalDays: CMP_PRICING_INTERVAL_DAYS };
+}
+
+function loadComparisonReminder() {
+  const el = document.getElementById('comparisonPricingReminder');
+  if (!el) return;
+  const r = getCmpPricingState();
+  if (r.status === 'ok') { el.style.display = 'none'; return; }
+
+  let bg, border, accent, icon, headline, sub;
+  if (r.status === 'overdue') {
+    bg = '#fef2f2'; border = '#fca5a5'; accent = '#991b1b'; icon = '🚨';
+    headline = `OVERDUE — Resubmit Walmart comparison pricing (${Math.abs(r.daysUntilDue)} days overdue)`;
+    sub = `Last submitted ${r.lastSubmitted}. Walmart strikethroughs expire after ~${r.intervalDays} days — upload fresh MSRPs now to restore the slashed-price display on your listings.`;
+  } else if (r.status === 'due_soon') {
+    bg = '#fffbeb'; border = '#fcd34d'; accent = '#92400e'; icon = '⏰';
+    headline = `Walmart comparison pricing resubmit due in ${r.daysUntilDue} days (by ${r.dueDate})`;
+    sub = `Last submitted ${r.lastSubmitted}. Walmart strikethroughs expire every ~${r.intervalDays} days. Plan a resubmit soon to avoid losing the slashed-price display.`;
+  } else {
+    bg = '#eff6ff'; border = '#93c5fd'; accent = '#1e40af'; icon = 'ℹ️';
+    headline = `Track your Walmart comparison pricing resubmit schedule`;
+    sub = `Walmart strikethroughs expire after ~${r.intervalDays} days (~5 months). Click below the first time you resubmit to start the countdown.`;
+  }
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="background:${bg};border:1px solid ${border};border-left:4px solid ${accent};border-radius:10px;padding:16px 20px;display:flex;gap:14px;align-items:flex-start;font-family:var(--font-body);">
+      <div style="font-size:26px;line-height:1;">${icon}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;color:${accent};font-size:15px;margin-bottom:4px;letter-spacing:0.2px;">${headline}</div>
+        <div style="font-size:13px;color:var(--text-med);line-height:1.5;">${sub}</div>
+      </div>
+      <button onclick="acknowledgeComparisonReminder()"
+        style="padding:9px 18px;background:${accent};color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;text-transform:uppercase;font-family:var(--font-body);">
+        I resubmitted today
+      </button>
+    </div>
+  `;
+}
+
+function acknowledgeComparisonReminder() {
+  const today = new Date().toISOString().slice(0, 10);
+  localStorage.setItem(CMP_PRICING_KEY, today);
+  loadComparisonReminder();
 }
 
 function renderApps() {
