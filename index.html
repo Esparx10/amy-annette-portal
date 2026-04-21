@@ -607,46 +607,21 @@ body::before {
         <div class="sub">Management Portal</div>
       </div>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;">
-      <button class="logout-btn" onclick="openReminders()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);">⏰ Reminders</button>
-      <button class="logout-btn" onclick="logout()">Sign Out</button>
-    </div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
   </div>
 
   <div class="welcome-banner">
     <h2>Welcome to your portal</h2>
-    <p>Manage shipments, sales, design, and operations across all channels.</p>
-    <div id="portalStats" style="margin-top:14px;display:flex;gap:28px;flex-wrap:wrap;font-family:var(--font-body);"></div>
+    <p>Manage shipments, sales, and operations across all channels.</p>
   </div>
 
-  <!-- Top reminder banner — shows the most urgent reminder (overdue > due_soon > unset).
+  <!-- Comparison pricing reminder banner — strikethrough expiry (~5 months).
        Populated by loadReminderBanner() (state lives in localStorage under aa_reminders). -->
   <div id="comparisonPricingReminder" style="display:none;margin:0 0 24px;"></div>
 
-  <div id="appSections"></div>
+  <h3 class="section-title">Your Apps</h3>
+  <div class="app-grid" id="appGrid"></div>
 
-</div>
-
-<!-- ============ REMINDERS MODAL ============ -->
-<div id="remindersModal" style="display:none;position:fixed;inset:0;background:rgba(45,30,20,0.55);backdrop-filter:blur(4px);z-index:999;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:var(--white);border-radius:14px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:var(--font-body);">
-    <div style="padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <h2 style="font-family:var(--font-heading);font-size:28px;color:var(--text-dark);font-weight:500;">⏰ Reminders</h2>
-      <button onclick="closeReminders()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-med);padding:4px 10px;">×</button>
-    </div>
-    <div style="padding:20px 28px;">
-      <div id="remindersList"></div>
-      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
-        <h3 style="font-family:var(--font-heading);font-size:18px;margin-bottom:10px;color:var(--text-dark);">Add reminder</h3>
-        <div style="display:grid;grid-template-columns:1fr 100px;gap:10px;margin-bottom:10px;">
-          <input id="newRemTitle" placeholder="Title (e.g. Quarterly inventory count)" style="padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px;">
-          <input id="newRemDays" type="number" min="1" max="3650" value="90" placeholder="Days" style="padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px;">
-        </div>
-        <input id="newRemDesc" placeholder="Short description (optional)" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px;margin-bottom:10px;">
-        <button onclick="addReminder()" style="padding:10px 22px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:0.5px;text-transform:uppercase;">Add</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -670,17 +645,11 @@ function updateWCCUrl() {
 }
 
 const portalApps = [
-  // ─── Analytics & Sales ───
-  { icon: '📊', name: 'Walmart Command Center', desc: 'Full analytics dashboard — orders, revenue, WFS, disputes, inventory', url: getWCCUrl(), status: 'live', category: 'Analytics' },
-  { icon: '🧾', name: 'Fab Fit Fun',           desc: 'Invoice generator + line sheets for FFF sales & events',            url: 'FFF-Invoice-Generator.html', status: 'live', category: 'Sales' },
-
-  // ─── Operations ───
-  { icon: '📦', name: 'WFS Shipment Tracker',  desc: 'Track Walmart fulfillment shipments by SKU',                       url: 'walmart_wfs_tracker_5.html', status: 'live', category: 'Operations' },
-  { icon: '📋', name: 'QTY Update',            desc: 'Woot Jewelry & Toys SKU/Quantity matcher',                          url: 'QTY-Update.html',            status: 'live', category: 'Operations' },
-  { icon: '🔄', name: 'Reorder Manager',       desc: 'Shared order list — sales requests, production fulfills',          url: 'reorder-manager.html',      status: 'live', category: 'Operations' },
-
-  // ─── Design ───
-  { icon: '🎨', name: 'Image Generator',       desc: 'Generate 2000×2000 Amazon listing images — auto-pull product photo + studio-polish + branded template', url: getWCCUrl() + '/image-generator', status: 'live', category: 'Design' },
+  { icon: '📊', name: 'Walmart Command Center', desc: 'Full analytics dashboard — orders, revenue, WFS, disputes, inventory', url: getWCCUrl(), status: 'live' },
+  { icon: '📋', name: 'QTY Update', desc: 'Woot Jewelry & Toys SKU/Quantity matcher', url: 'QTY-Update.html', status: 'live' },
+  { icon: '🧾', name: 'Fab Fit Fun', desc: 'Invoice generator + line sheets for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
+  { icon: '🔄', name: 'Reorder Manager', desc: 'Shared order list — sales requests, production fulfills', url: 'reorder-manager.html', status: 'live' },
+  { icon: '🎨', name: 'Image Generator', desc: '2000×2000 Amazon listing images — auto-pull product photo, studio-polish, branded template', url: getWCCUrl() + '/image-generator', status: 'live' },
 ];
 
 
@@ -889,80 +858,7 @@ function markReminderDone(id) {
   renderStats();
 }
 
-function deleteReminder(id) {
-  const list = getReminders();
-  const r = list.find(x => x.id === id);
-  if (r && r.builtIn) { alert('Built-in reminders can\'t be deleted. Mark as done or extend the interval instead.'); return; }
-  if (!confirm('Delete this reminder?')) return;
-  saveReminders(list.filter(x => x.id !== id));
-  renderRemindersList(); loadReminderBanner(); renderStats();
-}
-
-function addReminder() {
-  const title = document.getElementById('newRemTitle').value.trim();
-  const days = parseInt(document.getElementById('newRemDays').value, 10);
-  const desc = document.getElementById('newRemDesc').value.trim();
-  if (!title || !days || days < 1) { alert('Title and valid day count are required.'); return; }
-  const list = getReminders();
-  list.push({
-    id: 'custom-' + Date.now(),
-    title, description: desc || '',
-    intervalDays: days,
-    lastCompleted: null,
-    builtIn: false,
-  });
-  saveReminders(list);
-  document.getElementById('newRemTitle').value = '';
-  document.getElementById('newRemDesc').value = '';
-  renderRemindersList(); loadReminderBanner(); renderStats();
-}
-
-function renderRemindersList() {
-  const rems = getReminders().map(r => ({ ...r, ...computeReminderStatus(r) }));
-  const el = document.getElementById('remindersList');
-  if (!rems.length) { el.innerHTML = '<div style="color:var(--text-light);font-size:13px;padding:12px 0;">No reminders yet — add one below.</div>'; return; }
-  const colorFor = st => ({ overdue: '#991b1b', due_soon: '#92400e', unset: '#1e40af', ok: '#5c8a5c' }[st] || '#666');
-  const labelFor = r => {
-    if (r.status === 'overdue') return `${Math.abs(r.daysUntilDue)} days overdue`;
-    if (r.status === 'due_soon') return `due in ${r.daysUntilDue} days`;
-    if (r.status === 'ok') return `${r.daysUntilDue} days left`;
-    return 'not yet tracked';
-  };
-  el.innerHTML = rems.map(r => `
-    <div style="padding:14px;border:1px solid var(--border);border-left:4px solid ${colorFor(r.status)};border-radius:8px;margin-bottom:10px;font-family:var(--font-body);">
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:14px;color:var(--text-dark);">${r.title}${r.builtIn ? ' <span style="font-size:10px;color:var(--text-light);font-weight:400;letter-spacing:1px;text-transform:uppercase;">Built-in</span>' : ''}</div>
-          <div style="font-size:12px;color:var(--text-med);margin-top:3px;">${r.description || '<em>No description</em>'}</div>
-          <div style="font-size:11px;color:${colorFor(r.status)};margin-top:6px;font-weight:600;">
-            ${r.intervalDays}-day cycle · <span>${labelFor(r)}</span>${r.lastCompleted ? ` · last ${r.lastCompleted}` : ''}
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <button onclick="markReminderDone('${r.id}')" style="padding:6px 12px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;">✓ Done today</button>
-          ${!r.builtIn ? `<button onclick="deleteReminder('${r.id}')" style="padding:6px 12px;background:#fff;color:var(--error);border:1px solid var(--error);border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;">Delete</button>` : ''}
-        </div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function openReminders() {
-  document.getElementById('remindersModal').style.display = 'flex';
-  renderRemindersList();
-}
-
-function closeReminders() {
-  document.getElementById('remindersModal').style.display = 'none';
-}
-
-// Close modal on outside click
-document.addEventListener('click', (e) => {
-  const modal = document.getElementById('remindersModal');
-  if (modal && modal.style.display === 'flex' && e.target === modal) closeReminders();
-});
-
-// Aliases kept so existing callers (if any) don't break
+// Aliases kept so existing callers (showPortal, etc.) don't break
 function loadComparisonReminder() { loadReminderBanner(); }
 function acknowledgeComparisonReminder() { markReminderDone('cmp-pricing'); }
 
@@ -973,16 +869,8 @@ function renderApps() {
     if (app.name === 'Image Generator') app.url = getWCCUrl() + '/image-generator';
   });
 
-  // Group apps by category (Analytics → Sales → Operations → Design → Other)
-  const order = ['Analytics', 'Sales', 'Operations', 'Design'];
-  const groups = {};
-  for (const app of portalApps) {
-    const cat = app.category || 'Other';
-    (groups[cat] = groups[cat] || []).push(app);
-  }
-
-  const sections = document.getElementById('appSections');
-  const renderCard = (app) => `
+  const grid = document.getElementById('appGrid');
+  grid.innerHTML = portalApps.map(app => `
     <div style="position:relative;">
       <a class="app-card" href="${app.url}" target="_blank" ${app.url !== '#' ? '' : 'onclick="event.preventDefault()"'} style="display:block;">
         <div class="icon">${app.icon}</div>
@@ -993,38 +881,6 @@ function renderApps() {
       ${app.name === 'Walmart Command Center'
         ? '<button onclick="event.stopPropagation();updateWCCUrl();" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;font-size:16px;opacity:0.5;z-index:2;" title="Update tunnel URL">&#9881;</button>'
         : ''}
-    </div>
-  `;
-
-  sections.innerHTML = order
-    .concat(Object.keys(groups).filter(c => !order.includes(c)))
-    .filter(cat => groups[cat] && groups[cat].length)
-    .map(cat => `
-      <h3 class="section-title" style="margin-top:32px;">${cat}</h3>
-      <div class="app-grid">
-        ${groups[cat].map(renderCard).join('')}
-      </div>
-    `).join('');
-
-  renderStats();
-}
-
-// Simple stats row under the welcome banner — counts of apps, reminders, last login
-function renderStats() {
-  const el = document.getElementById('portalStats');
-  if (!el) return;
-  const apps = portalApps.filter(a => a.status === 'live').length;
-  const reminders = getReminders().length;
-  const overdue = getReminders().filter(r => computeReminderStatus(r).status === 'overdue').length;
-  const items = [
-    { label: 'Apps available', value: apps },
-    { label: 'Active reminders', value: reminders },
-    ...(overdue > 0 ? [{ label: 'Overdue', value: overdue, red: true }] : []),
-  ];
-  el.innerHTML = items.map(i => `
-    <div>
-      <div style="font-family:var(--font-heading);font-size:34px;font-weight:500;color:${i.red ? '#f4a899' : '#f4e6d6'};line-height:1;">${i.value}</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.75);letter-spacing:2px;text-transform:uppercase;margin-top:4px;">${i.label}</div>
     </div>
   `).join('');
 }
