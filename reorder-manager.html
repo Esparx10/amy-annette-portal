@@ -653,10 +653,10 @@ function downloadExcel() {
     return alert('No items to export' + (searchQ ? ' for "' + searchQ + '"' : ''));
   }
 
-  // Exactly the 5 columns requested: SKU · Cost · Request Date · Approval Date · Qty Ordered
+  // Columns: SKU · Cost · Request Date · Approval Date · Qty Ordered · Notes
   const fmtDate = (s) => s ? String(s).replace('T', ' ').split('.')[0].slice(0, 10) : '';
   const wsData = [
-    ['SKU', 'Cost', 'Request Date', 'Approval Date', 'Qty Ordered'],
+    ['SKU', 'Cost', 'Request Date', 'Approval Date', 'Qty Ordered', 'Notes'],
   ];
 
   for (const o of liveRows) {
@@ -666,24 +666,30 @@ function downloadExcel() {
       fmtDate(o.created_at),
       fmtDate(o.ordered_at),
       o.production_qty || '',
+      o.notes || '',
     ]);
   }
 
   // If a SKU is being searched, also include past actions (approvals/denials etc.)
   if (searchQ && _historyForSku && _historyForSku.sku === searchQ) {
     for (const h of _historyForSku.rows) {
+      const noteParts = [];
+      if (h.action) noteParts.push('[' + h.action.toUpperCase() + ']');
+      if (h.notes) noteParts.push(h.notes);
+      if (h.actor) noteParts.push('by ' + h.actor);
       wsData.push([
         h.sku,
         h.cost || '',
         '',                                                    // request date — not separately tracked in history
         h.action === 'approved' ? fmtDate(h.timestamp) : '',  // approval date if this row is the approval event
         h.qty || '',
+        noteParts.join(' '),
       ]);
     }
   }
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{wch:18}, {wch:10}, {wch:14}, {wch:14}, {wch:12}];
+  ws['!cols'] = [{wch:18}, {wch:10}, {wch:14}, {wch:14}, {wch:12}, {wch:40}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Reorder');
   const filename = searchQ ? `Reorder-${searchQ}-${date}.xlsx` : `Reorder-${date}.xlsx`;
