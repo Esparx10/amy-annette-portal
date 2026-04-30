@@ -195,7 +195,7 @@ tr:hover td { background: #faf6f1; }
     <button class="filter-tab" onclick="setFilter('Requested',this)">Requested <span class="count" id="filterRequested"></span></button>
     <button class="filter-tab" onclick="setFilter('Ordered',this)">On Order <span class="count" id="filterOrdered"></span></button>
     <button class="filter-tab" onclick="setFilter('Received',this)">Received <span class="count" id="filterReceived"></span></button>
-    <input type="text" id="orderSearch" placeholder="Search SKU..." oninput="applySearch()" style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:200px;font-family:var(--font-body);">
+    <input type="text" id="orderSearch" placeholder="Search SKU (incl. history)..." oninput="applySearch(); onSearchChange();" style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:240px;font-family:var(--font-body);">
   </div>
 
   <!-- Order List Table -->
@@ -245,6 +245,20 @@ tr:hover td { background: #faf6f1; }
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeNotesModal()">Cancel</button>
       <button class="btn btn-blue" onclick="saveNotesModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reorder History Modal — searchable timeline per SKU -->
+<div class="modal-overlay" id="historyModal" style="display:none;">
+  <div class="modal" style="max-width:760px;width:90%;max-height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <h3>Order History — <span id="historyModalSku" style="font-family:monospace;color:var(--blue);"></span></h3>
+      <button class="modal-close" onclick="closeHistory()">&times;</button>
+    </div>
+    <div class="modal-body" id="historyModalBody" style="overflow-y:auto;max-height:60vh;padding:0;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeHistory()">Close</button>
     </div>
   </div>
 </div>
@@ -328,19 +342,46 @@ function applySearch() {
   renderTable();
 }
 
+// History fetched on-demand when the user searches a SKU. Cached per SKU.
+let _historyForSku = null;     // { sku, rows: [...] }
+let _searchDebounce = null;
+function onSearchChange() {
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(async () => {
+    const q = (document.getElementById('orderSearch')?.value || '').trim().toUpperCase();
+    if (q.length >= 3) {
+      try {
+        const r = await fetch(API + '/api/reorder-list/history?sku=' + encodeURIComponent(q)).then(r => r.json());
+        _historyForSku = { sku: q, rows: r.rows || [] };
+      } catch { _historyForSku = null; }
+    } else {
+      _historyForSku = null;
+    }
+    renderTable();
+  }, 300);
+}
+
 function renderTable() {
   const tbody = document.getElementById('orderBody');
   const searchQ = (document.getElementById('orderSearch')?.value || '').trim().toUpperCase();
   let display = allOrders;
   if (searchQ) display = display.filter(o => (o.sku || '').toUpperCase().includes(searchQ));
 
-  if (!display.length) {
-    tbody.innerHTML = `<tr><td colspan="14" class="empty-msg">${searchQ ? 'No matching SKUs' : 'No items yet. Add SKUs above to get started.'}</td></tr>`;
+  // Past-activity rows (from order_history). Only visible when a SKU search is active
+  // AND we have fetched history for that exact SKU.
+  const historyRows = (_historyForSku && _historyForSku.sku === searchQ)
+    ? (_historyForSku.rows || [])
+    : [];
+
+  if (!display.length && !historyRows.length) {
+    tbody.innerHTML = `<tr><td colspan="14" class="empty-msg">${searchQ ? 'No matching SKUs and no history for "' + searchQ + '"' : 'No items yet. Add SKUs above to get started.'}</td></tr>`;
     document.getElementById('rowCount').textContent = searchQ ? `0 of ${allOrders.length} items` : '';
     return;
   }
 
-  document.getElementById('rowCount').textContent = searchQ ? `${display.length} of ${allOrders.length} items` : `${display.length} items`;
+  const liveLabel = `${display.length} of ${allOrders.length} items`;
+  const histLabel = historyRows.length ? ` · ${historyRows.length} past actions` : '';
+  document.getElementById('rowCount').textContent = searchQ ? liveLabel + histLabel : `${display.length} items`;
 
   tbody.innerHTML = display.map(o => {
     const isRequested = o.status === 'Requested';
@@ -351,9 +392,11 @@ function renderTable() {
 
     const orderedDate = o.ordered_at ? o.ordered_at.split(' ')[0] || o.ordered_at.split('T')[0] : '';
 
+    const histBtn = `<button class="btn" style="background:#888;color:#fff;font-size:10px;padding:2px 6px;" onclick="showHistory('${o.sku.replace(/'/g, "\\'")}')" title="View order history for this SKU">📜</button>`;
     let actions = '';
-    if (isRequested) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered">Order</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button>`;
-    else if (isOrdered) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})" title="Mark Received">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button>`;
+    if (isRequested) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered (Approve)">Order</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Deny request">Deny</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
+    else if (isOrdered) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})" title="Mark Received">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
+    else actions = histBtn;
 
     return `<tr>
       <td class="sku-cell">${o.sku}</td>
@@ -372,6 +415,39 @@ function renderTable() {
       <td style="white-space:nowrap">${actions}</td>
     </tr>`;
   }).join('');
+
+  // If a SKU search is active, append the past-activity rows from order_history
+  if (historyRows.length) {
+    const actionColor = (a) => ({
+      approved: '#7a9e7e', received: '#5a7e5e', denied: '#a83a3a',
+      expired: '#888', deleted: '#a83a3a',
+    })[a] || '#666';
+    const actionBg = (a) => actionColor(a) + '22';
+    const dividerLabel = display.length
+      ? `Past activity for ${searchQ} (${historyRows.length})`
+      : `Past activity for ${searchQ} (${historyRows.length}) — no live entries`;
+    let html = `<tr style="background:#f5efe7;"><td colspan="14" style="padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A5C4F;font-weight:600;">─── ${dividerLabel} ───</td></tr>`;
+    html += historyRows.map(h => {
+      const ts = (h.timestamp || '').replace('T', ' ').slice(0, 16);
+      return `<tr style="background:#fafafa;">
+        <td class="sku-cell">${h.sku}</td>
+        <td style="font-size:11px;color:#888;font-style:italic;">— history —</td>
+        <td class="check-col"></td>
+        <td style="font-size:11px;color:#666;">${h.actor || ''}</td>
+        <td class="times-col"></td>
+        <td class="stock-col"></td>
+        <td style="text-align:center;color:#888;">-</td>
+        <td style="text-align:center;color:#666;">${h.qty || '-'}</td>
+        <td style="text-align:right;color:#888;">-</td>
+        <td style="text-align:right;color:#666;">${h.cost ? '$' + Number(h.cost).toFixed(2) : '-'}</td>
+        <td><span class="badge" style="background:${actionBg(h.action)};color:${actionColor(h.action)};text-transform:uppercase;">${h.action}</span></td>
+        <td style="font-size:11px;color:#888;">${ts}</td>
+        <td style="font-size:11px;color:#666;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(h.notes||'').replace(/"/g, '&quot;')}">${h.notes || ''}</td>
+        <td></td>
+      </tr>`;
+    }).join('');
+    tbody.innerHTML += html;
+  }
 }
 
 // ─── Actions ───
@@ -428,6 +504,63 @@ async function deleteItem(id) {
   await fetch(API + '/api/reorder-list/' + id, { method: 'DELETE' });
   loadOrders();
 }
+
+async function denyItem(id, sku) {
+  const reason = prompt(`Deny reorder request for ${sku}?\n\nOptional: enter a reason (will be saved in history):`);
+  if (reason === null) return;     // cancelled
+  await fetch(API + '/api/reorder-list/' + id + '/deny', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason: reason || '' }),
+  });
+  loadOrders();
+}
+
+async function showHistory(sku) {
+  const modal = document.getElementById('historyModal');
+  const body  = document.getElementById('historyModalBody');
+  document.getElementById('historyModalSku').textContent = sku;
+  body.innerHTML = '<div style="padding:30px;text-align:center;color:#888;">Loading…</div>';
+  modal.style.display = 'flex';
+  try {
+    const r = await fetch(API + '/api/reorder-list/history?sku=' + encodeURIComponent(sku)).then(r => r.json());
+    const rows = r.rows || [];
+    if (!rows.length) {
+      body.innerHTML = '<div style="padding:30px;text-align:center;color:#888;">No history yet for ' + sku + '.</div>';
+      return;
+    }
+    const actionColor = (a) => ({
+      approved: '#7a9e7e', received: '#5a7e5e', denied: '#a83a3a',
+      expired:  '#888',    deleted:  '#a83a3a',
+    })[a] || '#666';
+    body.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f5efe7;text-align:left;">
+            <th style="padding:8px 12px;">When</th>
+            <th style="padding:8px 12px;">Action</th>
+            <th style="padding:8px 12px;text-align:right;">Qty</th>
+            <th style="padding:8px 12px;text-align:right;">Cost</th>
+            <th style="padding:8px 12px;">Actor</th>
+            <th style="padding:8px 12px;">Notes</th>
+          </tr>
+        </thead>
+        <tbody>${rows.map(r => `<tr style="border-bottom:1px solid #eee;">
+          <td style="padding:8px 12px;font-size:11px;">${r.timestamp ? r.timestamp.replace('T',' ').slice(0,16) : ''}</td>
+          <td style="padding:8px 12px;"><span class="badge" style="background:${actionColor(r.action)}22;color:${actionColor(r.action)};text-transform:uppercase;">${r.action}</span></td>
+          <td style="padding:8px 12px;text-align:right;">${r.qty || ''}</td>
+          <td style="padding:8px 12px;text-align:right;">${r.cost ? '$' + Number(r.cost).toFixed(2) : ''}</td>
+          <td style="padding:8px 12px;font-size:12px;">${r.actor || ''}</td>
+          <td style="padding:8px 12px;font-size:12px;color:#666;">${r.notes || ''}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    `;
+  } catch (e) {
+    body.innerHTML = '<div style="padding:30px;color:#a83a3a;">Error: ' + e.message + '</div>';
+  }
+}
+
+function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
 
 function setFilter(status, btn) {
   currentFilter = status;
@@ -507,25 +640,54 @@ async function uploadPriceFile(file) {
 // ─── Export ───
 
 function downloadExcel() {
-  if (!allOrders.length) return alert('No items to export');
   const date = new Date().toISOString().split('T')[0];
+  const searchQ = (document.getElementById('orderSearch')?.value || '').trim().toUpperCase();
+
+  // STRICT SEARCH FILTER — if a search is active, export ONLY matching rows.
+  // No status tab leakage, no extra columns.
+  const liveRows = searchQ
+    ? allOrdersUnfiltered.filter(o => (o.sku || '').toUpperCase().includes(searchQ))
+    : allOrders;
+
+  if (!liveRows.length && !(searchQ && _historyForSku && _historyForSku.rows.length)) {
+    return alert('No items to export' + (searchQ ? ' for "' + searchQ + '"' : ''));
+  }
+
+  // Exactly the 5 columns requested: SKU · Cost · Request Date · Approval Date · Qty Ordered
+  const fmtDate = (s) => s ? String(s).replace('T', ' ').split('.')[0].slice(0, 10) : '';
   const wsData = [
-    ['REORDER LIST — ' + date],
-    [],
-    ['SKU', 'Item Name', 'On Order?', 'Requested By', 'Times Requested', 'Current Stock', 'Suggested Qty', 'Production Qty', 'Original Cost', 'New Cost', 'Status', 'Notes'],
+    ['SKU', 'Cost', 'Request Date', 'Approval Date', 'Qty Ordered'],
   ];
-  for (const o of allOrders) {
+
+  for (const o of liveRows) {
     wsData.push([
-      o.sku, o.item_name || '', o.status === 'Ordered' ? 'Yes' : '', o.requested_by || '',
-      o.times_requested || 1, o.current_stock || 0, o.suggested_qty || '', o.production_qty || '',
-      o.original_cost || '', o.new_cost || '', o.status, o.notes || '',
+      o.sku,
+      o.new_cost || o.original_cost || '',
+      fmtDate(o.created_at),
+      fmtDate(o.ordered_at),
+      o.production_qty || '',
     ]);
   }
+
+  // If a SKU is being searched, also include past actions (approvals/denials etc.)
+  if (searchQ && _historyForSku && _historyForSku.sku === searchQ) {
+    for (const h of _historyForSku.rows) {
+      wsData.push([
+        h.sku,
+        h.cost || '',
+        '',                                                    // request date — not separately tracked in history
+        h.action === 'approved' ? fmtDate(h.timestamp) : '',  // approval date if this row is the approval event
+        h.qty || '',
+      ]);
+    }
+  }
+
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{wch:18},{wch:24},{wch:10},{wch:14},{wch:6},{wch:8},{wch:10},{wch:12},{wch:10},{wch:10},{wch:10},{wch:20}];
+  ws['!cols'] = [{wch:18}, {wch:10}, {wch:14}, {wch:14}, {wch:12}];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Reorder List');
-  XLSX.writeFile(wb, `Reorder-List-${date}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, 'Reorder');
+  const filename = searchQ ? `Reorder-${searchQ}-${date}.xlsx` : `Reorder-${date}.xlsx`;
+  XLSX.writeFile(wb, filename);
 }
 
 function copyList() {

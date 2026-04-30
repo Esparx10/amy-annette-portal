@@ -681,11 +681,13 @@ function dbGetInvoiceHistory() {
   }));
 }
 
-function dbSaveInvoice(inv) {
-  if (!_fffDB) return;
-  _fffDB.run("INSERT OR IGNORE INTO invoice_history (id, sale_name, date, created_at, items_json, total_qty, total_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+async function dbSaveInvoice(inv) {
+  if (!_fffDB) return false;
+  // INSERT OR REPLACE so a same-millisecond ID overwrites cleanly instead of silently dropping
+  _fffDB.run("INSERT OR REPLACE INTO invoice_history (id, sale_name, date, created_at, items_json, total_qty, total_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [inv.id, inv.saleName, inv.date, inv.createdAt, JSON.stringify(inv.items), inv.totalQty, inv.totalAmount]);
-  persistDB();
+  await persistDB();   // FIX: actually wait for IndexedDB write before returning
+  return true;
 }
 
 function dbDeleteInvoice(id) {
@@ -851,6 +853,7 @@ function importMaster(file) {
 
       if (newData.length > 0) {
         masterData = newData;
+        dbSaveMasterData(masterData);   // FIX: persist the imported master to SQLite/IndexedDB
         renderMasterTable();
         const ms = document.getElementById('masterStatus');
         ms.textContent = `Imported ${newData.length} products from master sheet.`;
@@ -1186,13 +1189,15 @@ async function downloadInvoice() {
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   saveAs(blob, `Invoice - ${saleName} - ${dateStr}.xlsx`);
 
-  // Save invoice to history for dashboard
-  saveInvoiceToHistory(saleName, dateStr, invoiceData);
-  showToast('Invoice downloaded & saved to dashboard!');
+  // Save invoice to history for dashboard — await so the toast doesn't lie
+  const saved = await saveInvoiceToHistory(saleName, dateStr, invoiceData);
+  showToast(saved ? 'Invoice downloaded & saved to dashboard!' : 'Invoice downloaded — dashboard save failed');
 }
 
-function saveInvoiceToHistory(saleName, dateStr, data) {
-  const id = Date.now().toString(36);
+async function saveInvoiceToHistory(saleName, dateStr, data) {
+  // Collision-proof ID: timestamp + random suffix. Plain Date.now() can repeat
+  // when invoices are saved in the same millisecond.
+  const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   const inv = {
     id: id,
     saleName: saleName,
@@ -1205,7 +1210,7 @@ function saveInvoiceToHistory(saleName, dateStr, data) {
     totalQty: data.reduce((s, r) => s + r.qty, 0),
     totalAmount: data.reduce((s, r) => s + r.amount, 0)
   };
-  dbSaveInvoice(inv);
+  return await dbSaveInvoice(inv);
 }
 
 function showToast(msg) {
