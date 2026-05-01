@@ -252,9 +252,16 @@ tr:hover td { background: #faf6f1; }
 <!-- Reorder History Modal — searchable timeline per SKU -->
 <div class="modal-overlay" id="historyModal" style="display:none;">
   <div class="modal" style="max-width:760px;width:90%;max-height:80vh;display:flex;flex-direction:column;">
-    <div class="modal-header">
-      <h3>Order History — <span id="historyModalSku" style="font-family:monospace;color:var(--blue);"></span></h3>
-      <button class="modal-close" onclick="closeHistory()">&times;</button>
+    <div class="modal-header" style="flex-direction:column;align-items:flex-start;gap:2px;">
+      <h3 style="margin:0;display:flex;align-items:center;gap:6px;width:100%;">
+        <span style="flex:1;line-height:1.3;">
+          Order History — <span id="historyModalItemName" style="color:var(--text-dark);"></span>
+        </span>
+        <button class="modal-close" onclick="closeHistory()" style="margin-left:auto;">&times;</button>
+      </h3>
+      <div style="font-family:monospace;color:var(--blue);font-size:12px;">
+        <span id="historyModalSku"></span>
+      </div>
     </div>
     <div class="modal-body" id="historyModalBody" style="overflow-y:auto;max-height:60vh;padding:0;"></div>
     <div class="modal-footer">
@@ -392,7 +399,7 @@ function renderTable() {
 
     const orderedDate = o.ordered_at ? o.ordered_at.split(' ')[0] || o.ordered_at.split('T')[0] : '';
 
-    const histBtn = `<button class="btn" style="background:#888;color:#fff;font-size:10px;padding:2px 6px;" onclick="showHistory('${o.sku.replace(/'/g, "\\'")}')" title="View order history for this SKU">📜</button>`;
+    const histBtn = `<button class="btn" style="background:#888;color:#fff;font-size:10px;padding:2px 6px;" onclick="showHistory('${o.sku.replace(/'/g, "\\'")}', ${JSON.stringify(o.item_name || '')})" title="View order history for this SKU">📜</button>`;
     let actions = '';
     if (isRequested) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered (Approve)">Order</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Deny request">Deny</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
     else if (isOrdered) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})" title="Mark Received">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
@@ -516,9 +523,12 @@ async function denyItem(id, sku) {
   loadOrders();
 }
 
-async function showHistory(sku) {
+async function showHistory(sku, itemName) {
   const modal = document.getElementById('historyModal');
   const body  = document.getElementById('historyModalBody');
+  // Title: show product name prominently, SKU as secondary info underneath.
+  // Falls back to "(no name)" if the row has no item_name.
+  document.getElementById('historyModalItemName').textContent = (itemName && itemName.trim()) ? itemName : '(no name on file)';
   document.getElementById('historyModalSku').textContent = sku;
   body.innerHTML = '<div style="padding:30px;text-align:center;color:#888;">Loading…</div>';
   modal.style.display = 'flex';
