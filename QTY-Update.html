@@ -3445,13 +3445,23 @@ function matchCSV(tabId, file) {
 
     t.skus.forEach(sku => {
       const key = makeKey(sku);
-      if (csvMap[key]) {
-        t.qtys[sku] = csvMap[key].qty;
+      // ── Alias FIRST. ──────────────────────────────────────────────
+      // Previously this checked exact match first and only fell back to the
+      // alias if no exact match existed. That broke the user's intent in the
+      // case where BOTH the original key AND the aliased target are present
+      // in the CSV: the user explicitly remapped DAB5015 → DBB128, but a
+      // re-upload of the CSV would silently revert to DAB5015's qty because
+      // the exact match fired before the alias check.
+      //
+      // Aliases represent a deliberate user decision ("this listing should
+      // pull stock from a different SKU"). They MUST take priority over the
+      // automatic exact-key match.
+      if (skuAliases[key] && csvMap[skuAliases[key]]) {
+        t.qtys[sku] = csvMap[skuAliases[key]].qty;
         exactMatched++;
       }
-      // Check saved aliases from previously accepted close matches
-      else if (skuAliases[key] && csvMap[skuAliases[key]]) {
-        t.qtys[sku] = csvMap[skuAliases[key]].qty;
+      else if (csvMap[key]) {
+        t.qtys[sku] = csvMap[key].qty;
         exactMatched++;
       }
       else {
@@ -3697,11 +3707,25 @@ function renderTable(tabId) {
     const winVal = winLookup[sku] || '';
     const winCol = `<td class="match-key" style="color:#2c6fbb;font-weight:600;">${escapeHtml(winVal)}</td>`;
 
+    // Match Key cell: if the user has remapped this SKU, show the alias
+    // they chose (the qty source) — NOT the original makeKey output. The
+    // original key is preserved as a small grey hint so it's still clear
+    // which row this is. Without this, a remapped row looks identical to
+    // an un-remapped row, which is exactly what made it look like the qty
+    // didn't update.
+    const aliasKey = skuAliases[key];
+    const matchKeyCell = aliasKey
+      ? `<td class="match-key" title="Remapped — pulls qty from ${escapeHtml(aliasKey)}">
+           <strong style="color:#27ae60;">${escapeHtml(aliasKey)}</strong>
+           <span style="font-size:10px;color:#bbb;margin-left:4px;">← ${escapeHtml(key)}</span>
+         </td>`
+      : `<td class="match-key">${escapeHtml(key)}</td>`;
+
     return `<tr class="${hasQty ? 'matched' : ''}">
       <td style="color:#bbb;font-size:11px;">${globalIdx + 1}</td>
       <td class="sku-cell" onclick="openRemapDialog('${tabId}','${escapeAttr(sku)}')" title="Click to remap">${escapeHtml(sku)}</td>
       ${winCol}
-      <td class="match-key">${escapeHtml(key)}</td>
+      ${matchKeyCell}
       <td><input type="number" class="qty-cell ${hasQty ? 'has-value' : ''}"
           value="${escapeHtml(qty)}" min="0" placeholder="-"
           onchange="manualQty('${tabId}','${escapeAttr(sku)}',this.value)"
