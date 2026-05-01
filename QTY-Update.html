@@ -3314,7 +3314,14 @@ const WIN_MAP_JEWELRY = {"IGT-DAAS-DAB5015":"WT480936A","IGT-DAAS-DAB5016":"WT44
 // Accepted alias map: stored in localStorage
 // Maps listKey -> csvKey so next time we auto-match without asking
 function loadAliases() {
-  try { return JSON.parse(localStorage.getItem('skuAliases') || '{}'); } catch { return {}; }
+  try {
+    const aliases = JSON.parse(localStorage.getItem('skuAliases') || '{}');
+    if (aliases.DAB5016 === 'DAB5037') {
+      aliases.DAB5016 = 'DBB128';
+      localStorage.setItem('skuAliases', JSON.stringify(aliases));
+    }
+    return aliases;
+  } catch { return {}; }
 }
 function saveAliases(aliases) {
   localStorage.setItem('skuAliases', JSON.stringify(aliases));
