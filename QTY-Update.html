@@ -3319,7 +3319,7 @@ function loadAliases() {
 function saveAliases(aliases) {
   localStorage.setItem('skuAliases', JSON.stringify(aliases));
 }
-const skuAliases = Object.assign(loadAliases(), {"DBE17517-S":"DBE17517","DBE5887":"DEB5887","DEB5981-R":"DEBS5971-R","DEBS5829-S":"DEBS5829","DEBS5818":"DRBS5818","DES508-":"DES508","DES822-40MM":"DEBS822-40","DES7001-RG":"DES7001-R","DAB5016":"DAB5037","DEBS6137":"DEBS6137-40","DES508-G":"DES508-E","DNB6006":"DEB606","DNB6008":"DNBS6008","DNBS6139":"DNBSS6139","DNS441-S":"DNS441","DNS541-16S":"DNS541-16-S","DNS541-18S":"DNS541-18-S","DNS541-24S":"DNS541-24-S","DNS542-18S":"DNS542-18-S","DNS542-24S":"DNS542-24-S","DRBS5050BS-6":"DRBS5050-BS-6","DRBS5050BS-7":"DRBS5050-BS-7","DRBS5050BS-8":"DRBS5050-BS-8","DRBS5050BS-9":"DRBS5050-BS-9","DRBS6112-7":"DRBSS6112-7","DRBS6112-8":"DRBSS6112-8","DRBS6112-9":"DRBSS6112-9","DRBS6112-B-6":"DRBSS6112-B-6","DRBS6112-B-7":"DRBSS6112-B-6","DRBS6112-B-8":"DRBSS6112-B-8","DRBS6112-B-9":"DRBSS6112-B-9","DBE5014":"DEB5014","DRBS6112-6":"DRBSS6112-6"});
+const skuAliases = Object.assign({"DBE17517-S":"DBE17517","DBE5887":"DEB5887","DEB5981-R":"DEBS5971-R","DEBS5829-S":"DEBS5829","DEBS5818":"DRBS5818","DES508-":"DES508","DES822-40MM":"DEBS822-40","DES7001-RG":"DES7001-R","DAB5016":"DBB128","DEBS6137":"DEBS6137-40","DES508-G":"DES508-E","DNB6006":"DEB606","DNB6008":"DNBS6008","DNBS6139":"DNBSS6139","DNS441-S":"DNS441","DNS541-16S":"DNS541-16-S","DNS541-18S":"DNS541-18-S","DNS541-24S":"DNS541-24-S","DNS542-18S":"DNS542-18-S","DNS542-24S":"DNS542-24-S","DRBS5050BS-6":"DRBS5050-BS-6","DRBS5050BS-7":"DRBS5050-BS-7","DRBS5050BS-8":"DRBS5050-BS-8","DRBS5050BS-9":"DRBS5050-BS-9","DRBS6112-7":"DRBSS6112-7","DRBS6112-8":"DRBSS6112-8","DRBS6112-9":"DRBSS6112-9","DRBS6112-B-6":"DRBSS6112-B-6","DRBS6112-B-7":"DRBSS6112-B-6","DRBS6112-B-8":"DRBSS6112-B-8","DRBS6112-B-9":"DRBSS6112-B-9","DBE5014":"DEB5014","DRBS6112-6":"DRBSS6112-6"}, loadAliases());
 
 // Per-tab state
 const state = {
@@ -4051,8 +4051,8 @@ function saveToFile() {
   // Bake in aliases as pre-loaded data
   // Replace the loadAliases default with the current aliases
   html = html.replace(
-    /const skuAliases = loadAliases\(\);.*$/m,
-    'const skuAliases = Object.assign(loadAliases(), ' + aliasData + ');'
+    /const skuAliases = Object\.assign\(\{[\s\S]*?\}, loadAliases\(\)\);/,
+    'const skuAliases = Object.assign(' + aliasData + ', loadAliases());'
   );
 
   // Clear localStorage-based added/deleted since they're now baked in
