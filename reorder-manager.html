@@ -454,7 +454,8 @@ function renderTable() {
     const reqDateStr = reqDt && !isNaN(reqDt) ?
       reqDt.toLocaleDateString('en-US', {month:'short', day:'numeric'}) +
       ' ' + reqDt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:false}) : '';
-    // Cross-channel 30-day sales — Walmart + Amazon + Target+ all live.
+    // Cross-channel 30-day sales — Walmart (live), Amazon (xlsx snapshot),
+    // Target+ (live).
     const wm30 = +o.walmart_units30 || 0;
     const az30 = +o.amazon_units30  || 0;
     const tg30 = +o.target_units30  || 0;
@@ -463,19 +464,31 @@ function renderTable() {
     const azRev30 = +o.amazon_revenue30  || 0;
     const tgRev30 = +o.target_revenue30  || 0;
     const totalRev30 = +o.total_revenue30 || (wmRev30 + azRev30 + tgRev30);
-    const fmtRow = (label, units, rev) => `${label}: ${units}${rev ? ' ($' + rev.toFixed(0) + ')' : ''}`;
+    // Amazon data is currently a manually-imported xlsx snapshot (GNO brand
+    // analysis), not a live SP-API sync. Compute the staleness so we can
+    // warn when the snapshot is older than 7 days.
+    let amazonStale = false;
+    let amazonAgeDays = null;
+    let amazonAgeStr = '';
+    if (o.amazon_last_imported) {
+      const ms = Date.now() - new Date(o.amazon_last_imported.replace(' ', 'T') + 'Z').getTime();
+      amazonAgeDays = Math.floor(ms / 86400000);
+      amazonAgeStr = `imported ${amazonAgeDays}d ago (${o.amazon_last_imported.slice(0,10)})`;
+      amazonStale = amazonAgeDays > 7;
+    }
+    const fmtRow = (label, units, rev, suffix = '') => `${label}: ${units}${rev ? ' ($' + rev.toFixed(0) + ')' : ''}${suffix}`;
     const sold30Tooltip = [
-      fmtRow('Walmart', wm30, wmRev30),
-      fmtRow('Amazon ', az30, azRev30),
-      fmtRow('Target+', tg30, tgRev30),
+      fmtRow('Walmart', wm30, wmRev30, ' (live)'),
+      fmtRow('Amazon ', az30, azRev30, amazonAgeStr ? ' — ' + amazonAgeStr : ''),
+      fmtRow('Target+', tg30, tgRev30, ' (live)'),
       ``,
       `Total (30d): ${total30} units · $${totalRev30.toFixed(0)}`,
-    ].join('\n');
-    // Compact breakdown shown in the cell — uses initials for the channels
-    // that have any sales so eyes can scan: "W 12 · A 5 · T 3" etc.
+      amazonStale ? `\n⚠ Amazon snapshot is ${amazonAgeDays} days old — re-import the GNO xlsx for current data.` : '',
+    ].filter(Boolean).join('\n');
+    // Compact breakdown — flag stale Amazon with ⚠
     const breakdown = [
       wm30 > 0 ? `W ${wm30}` : null,
-      az30 > 0 ? `A ${az30}` : null,
+      az30 > 0 ? `A ${az30}${amazonStale ? '⚠' : ''}` : null,
       tg30 > 0 ? `T ${tg30}` : null,
     ].filter(Boolean).join(' · ');
     const sold30Cell = total30 > 0
