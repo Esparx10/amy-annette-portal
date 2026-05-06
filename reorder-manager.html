@@ -73,6 +73,34 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .ac-stock { color: var(--text-light); font-size: 11px; }
 
 /* NOTES MODAL */
+/* Sold-30d hover report card — shows the per-channel breakdown when you
+   hover over the units number on a row. Custom CSS so we can render a
+   real table with formatting (browser title= attribute is plain text only). */
+.sold30-wrap .sold30-tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  z-index: 200;
+  background: #fff;
+  border: 1px solid #d8cfc1;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+  padding: 10px;
+  min-width: 320px;
+  font-weight: 400;
+  text-align: left;
+  /* avoid being clipped by table-scroll containers — handled by JS too if needed */
+}
+.sold30-wrap:hover .sold30-tooltip { display: block; }
+.sold30-wrap .sold30-tooltip::before {
+  content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+  border-bottom: 6px solid #d8cfc1;
+}
+
 .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(59,47,47,0.4); z-index:500; align-items:center; justify-content:center; }
 .modal-overlay.open { display:flex; }
 .modal { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow-lg); width:480px; max-width:90vw; max-height:80vh; display:flex; flex-direction:column; }
@@ -454,8 +482,8 @@ function renderTable() {
     const reqDateStr = reqDt && !isNaN(reqDt) ?
       reqDt.toLocaleDateString('en-US', {month:'short', day:'numeric'}) +
       ' ' + reqDt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:false}) : '';
-    // Cross-channel 30-day sales — Walmart (live), Amazon (xlsx snapshot),
-    // Target+ (live).
+    // Cross-channel 30-day sales — Walmart (live), Amazon (live SP-API or
+    // xlsx fallback), Target+ (live).
     const wm30 = +o.walmart_units30 || 0;
     const az30 = +o.amazon_units30  || 0;
     const tg30 = +o.target_units30  || 0;
@@ -464,36 +492,72 @@ function renderTable() {
     const azRev30 = +o.amazon_revenue30  || 0;
     const tgRev30 = +o.target_revenue30  || 0;
     const totalRev30 = +o.total_revenue30 || (wmRev30 + azRev30 + tgRev30);
-    // Amazon data is currently a manually-imported xlsx snapshot (GNO brand
-    // analysis), not a live SP-API sync. Compute the staleness so we can
-    // warn when the snapshot is older than 7 days.
-    let amazonStale = false;
-    let amazonAgeDays = null;
-    let amazonAgeStr = '';
+    // Amazon data source: 'live' (SP-API orders sync), 'snapshot' (manual xlsx
+    // import — flag staleness), or 'none' (no Amazon presence for this SKU).
+    const amzSrc = o.amazon_data_source || 'none';
+    let amzAgeStr = '';
+    let amzStale = false;
     if (o.amazon_last_imported) {
       const ms = Date.now() - new Date(o.amazon_last_imported.replace(' ', 'T') + 'Z').getTime();
-      amazonAgeDays = Math.floor(ms / 86400000);
-      amazonAgeStr = `imported ${amazonAgeDays}d ago (${o.amazon_last_imported.slice(0,10)})`;
-      amazonStale = amazonAgeDays > 7;
+      const ageDays  = Math.floor(ms / 86400000);
+      const ageHours = Math.floor(ms / 3600000);
+      amzAgeStr = ageDays >= 1 ? `${ageDays}d ago` : `${Math.max(0, ageHours)}h ago`;
+      amzStale = amzSrc === 'snapshot' && ageDays > 7;
     }
-    const fmtRow = (label, units, rev, suffix = '') => `${label}: ${units}${rev ? ' ($' + rev.toFixed(0) + ')' : ''}${suffix}`;
-    const sold30Tooltip = [
-      fmtRow('Walmart', wm30, wmRev30, ' (live)'),
-      fmtRow('Amazon ', az30, azRev30, amazonAgeStr ? ' — ' + amazonAgeStr : ''),
-      fmtRow('Target+', tg30, tgRev30, ' (live)'),
-      ``,
-      `Total (30d): ${total30} units · $${totalRev30.toFixed(0)}`,
-      amazonStale ? `\n⚠ Amazon snapshot is ${amazonAgeDays} days old — re-import the GNO xlsx for current data.` : '',
-    ].filter(Boolean).join('\n');
-    // Compact breakdown — flag stale Amazon with ⚠
+    const amzSourceLabel = amzSrc === 'live' ? `live · ${amzAgeStr}`
+                        : amzSrc === 'snapshot' ? `snapshot · ${amzAgeStr}${amzStale ? ' ⚠' : ''}`
+                        : 'no data';
+    const wfs90 = +o.wfs_sent_90d || 0;
+
+    // Build a proper rich hover card — a real div that appears on hover via
+    // CSS. The browser's title= tooltip can't do tables / colors.
+    // Each row: channel name, units, revenue, source badge.
+    const channelRow = (icon, label, units, rev, src, srcColor) => `
+      <tr>
+        <td style="padding:3px 8px;">${icon} ${label}</td>
+        <td style="padding:3px 8px;text-align:right;font-weight:600;">${units.toLocaleString()}</td>
+        <td style="padding:3px 8px;text-align:right;color:#666;">${rev > 0 ? '$' + Math.round(rev).toLocaleString() : '—'}</td>
+        <td style="padding:3px 8px;font-size:10px;color:${srcColor};">${src}</td>
+      </tr>`;
+    const reportCard = `
+      <div class="sold30-tooltip">
+        <div style="font-weight:700;font-size:12px;color:#3a2a1a;margin-bottom:6px;border-bottom:1px solid #e5dfd6;padding-bottom:4px;">
+          Sold last 30 days · ${o.sku}
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <thead>
+            <tr style="color:#7a6555;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">
+              <th style="text-align:left;padding:3px 8px;">Channel</th>
+              <th style="text-align:right;padding:3px 8px;">Units</th>
+              <th style="text-align:right;padding:3px 8px;">Revenue</th>
+              <th style="text-align:left;padding:3px 8px;">Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${channelRow('🛒', 'Walmart', wm30, wmRev30, 'live', '#7a9e7e')}
+            ${channelRow('📦', 'Amazon&nbsp;', az30, azRev30, amzSourceLabel, amzStale ? '#c08040' : (amzSrc === 'live' ? '#7a9e7e' : '#aaa'))}
+            ${channelRow('🎯', 'Target+', tg30, tgRev30, 'live', '#7a9e7e')}
+            <tr style="border-top:1px solid #e5dfd6;">
+              <td style="padding:5px 8px;font-weight:700;">Total</td>
+              <td style="padding:5px 8px;text-align:right;font-weight:700;color:#3a2a1a;">${total30.toLocaleString()}</td>
+              <td style="padding:5px 8px;text-align:right;font-weight:700;">${totalRev30 > 0 ? '$' + Math.round(totalRev30).toLocaleString() : '—'}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+        ${wfs90 > 0 ? `<div style="margin-top:6px;padding-top:5px;border-top:1px dashed #e5dfd6;font-size:11px;color:#7a6555;">📤 WFS sent (90d): <strong>${wfs90.toLocaleString()}</strong> units</div>` : ''}
+        ${o.walmart_units90 ? `<div style="margin-top:3px;font-size:11px;color:#7a6555;">📊 Walmart 90d: <strong>${(+o.walmart_units90).toLocaleString()}</strong> units (~${Math.round(o.walmart_units90/90*30)}/month)</div>` : ''}
+        ${amzStale ? `<div style="margin-top:6px;padding:4px 8px;background:#fdf3e7;color:#b86b2a;border-radius:4px;font-size:10px;">⚠ Amazon snapshot is ${amzAgeStr} old. Run a live SP-API sync to refresh.</div>` : ''}
+      </div>`;
+    // Compact in-cell breakdown for at-a-glance scanning
     const breakdown = [
       wm30 > 0 ? `W ${wm30}` : null,
-      az30 > 0 ? `A ${az30}${amazonStale ? '⚠' : ''}` : null,
+      az30 > 0 ? `A ${az30}${amzStale ? '⚠' : ''}` : null,
       tg30 > 0 ? `T ${tg30}` : null,
     ].filter(Boolean).join(' · ');
     const sold30Cell = total30 > 0
-      ? `<span title="${sold30Tooltip}" style="font-weight:600;">${total30}${breakdown ? ` <span style="color:#888;font-weight:400;font-size:10px;">(${breakdown})</span>` : ''}</span>`
-      : `<span title="${sold30Tooltip}" style="color:#bbb;">0</span>`;
+      ? `<span class="sold30-wrap" style="position:relative;font-weight:600;cursor:help;">${total30}${breakdown ? ` <span style="color:#888;font-weight:400;font-size:10px;">(${breakdown})</span>` : ''}${reportCard}</span>`
+      : `<span class="sold30-wrap" style="position:relative;color:#bbb;cursor:help;">0${reportCard}</span>`;
     // WFS units shipped in the last 90 days (placed on shipments)
     const wfs90 = +o.wfs_sent_90d || 0;
     const wfs90Cell = wfs90 > 0
