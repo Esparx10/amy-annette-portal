@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Amy & Annette — Reorder Manager</title>
+<!-- Favicon: matches the 🔄 icon used on the portal card -->
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔄</text></svg>'>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -110,6 +112,7 @@ tr:hover td { background: #faf6f1; }
 .badge-requested { background: #e8f0f8; color: #4A7AB5; }
 .badge-ordered { background: #fff3e6; color: #C4833A; }
 .badge-received { background: #e6f2e8; color: #5a7e5e; }
+.badge-denied { background: #fbe7e7; color: #a83a3a; }
 .check-col { text-align: center; font-size: 16px; }
 .times-col { text-align: center; font-weight: 700; }
 .stock-col { text-align: center; }
@@ -195,6 +198,7 @@ tr:hover td { background: #faf6f1; }
     <button class="filter-tab" onclick="setFilter('Requested',this)">Requested <span class="count" id="filterRequested"></span></button>
     <button class="filter-tab" onclick="setFilter('Ordered',this)">On Order <span class="count" id="filterOrdered"></span></button>
     <button class="filter-tab" onclick="setFilter('Received',this)">Received <span class="count" id="filterReceived"></span></button>
+    <button class="filter-tab" onclick="setFilter('Denied',this)" title="Archived denied requests" style="color:#a83a3a;">Denied <span class="count" id="filterDenied"></span></button>
     <input type="text" id="orderSearch" placeholder="Search SKU (incl. history)..." oninput="applySearch(); onSearchChange();" style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:240px;font-family:var(--font-body);">
   </div>
 
@@ -282,6 +286,22 @@ tr:hover td { background: #faf6f1; }
   </div>
 </div>
 
+<!-- Previously-Denied SKU Warning Modal -->
+<!-- Shown BEFORE the duplicate-on-order check. If a SKU was denied at any
+     point in the past, this modal warns the user with the most recent
+     denial date + reason and forces an explicit "Yes, reorder anyway"
+     before proceeding. -->
+<div class="modal-overlay" id="deniedWarnModal">
+  <div class="confirm-modal">
+    <h3 style="color:#a83a3a;">⚠️ This SKU was previously denied</h3>
+    <div class="confirm-detail" id="deniedWarnDetail"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-outline" onclick="closeDeniedWarnModal()">Cancel</button>
+      <button class="btn" style="background:#a83a3a;color:#fff;" onclick="proceedAfterDeniedWarn()">Reorder Anyway</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const WCC_DEFAULT_URL = 'https://conservational-unvaccinated-dotty.ngrok-free.dev';
 const API = localStorage.getItem('wcc_url') || WCC_DEFAULT_URL;
@@ -324,6 +344,11 @@ async function loadStats() {
   document.getElementById('filterRequested').textContent = data.requested ? `(${data.requested})` : '';
   document.getElementById('filterOrdered').textContent = data.ordered ? `(${data.ordered})` : '';
   document.getElementById('filterReceived').textContent = data.received ? `(${data.received})` : '';
+  // Denied count derived from the in-memory list since /stats doesn't track it.
+  // Falls back to an empty string when zero (matches the other tabs' style).
+  const deniedCount = (allOrdersUnfiltered || []).filter(o => o.status === 'Denied').length;
+  const deniedTab = document.getElementById('filterDenied');
+  if (deniedTab) deniedTab.textContent = deniedCount ? `(${deniedCount})` : '';
 }
 
 async function loadPriceCount() {
@@ -392,17 +417,34 @@ function renderTable() {
 
   tbody.innerHTML = display.map(o => {
     const isRequested = o.status === 'Requested';
-    const isOrdered = o.status === 'Ordered';
-    const isReceived = o.status === 'Received';
+    const isOrdered   = o.status === 'Ordered';
+    const isReceived  = o.status === 'Received';
+    const isDenied    = o.status === 'Denied';
     const stockClass = o.current_stock > 0 ? 'stock-ok' : 'stock-oos';
-    const badgeClass = isRequested ? 'badge-requested' : isOrdered ? 'badge-ordered' : 'badge-received';
+    const badgeClass = isRequested ? 'badge-requested'
+                     : isOrdered   ? 'badge-ordered'
+                     : isReceived  ? 'badge-received'
+                     : isDenied    ? 'badge-denied'
+                     : '';
 
-    const orderedDate = o.ordered_at ? o.ordered_at.split(' ')[0] || o.ordered_at.split('T')[0] : '';
+    // Denied rows: show denial date in the "Date Ordered" column slot, with
+    // reason as a hover tooltip. Uses denied_at (first denial timestamp on
+    // this row) which the backend pulls from order_history.
+    const orderedDate = o.ordered_at
+      ? (o.ordered_at.split(' ')[0] || o.ordered_at.split('T')[0])
+      : '';
+    const deniedDate  = o.denied_at
+      ? (o.denied_at.split(' ')[0] || o.denied_at.split('T')[0])
+      : '';
+    const dateCell    = isDenied
+      ? `<span style="color:#a83a3a;font-weight:600;" title="${(o.denied_reason || '').replace(/"/g,'&quot;')}">denied&nbsp;${deniedDate}</span>`
+      : orderedDate;
 
     const histBtn = `<button class="btn" style="background:#888;color:#fff;font-size:10px;padding:2px 6px;" onclick="showHistory('${o.sku.replace(/'/g, "\\'")}', ${JSON.stringify(o.item_name || '')})" title="View order history for this SKU">📜</button>`;
     let actions = '';
     if (isRequested) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered (Approve)">Order</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Deny request">Deny</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
     else if (isOrdered) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})" title="Mark Received">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
+    else if (isDenied) actions = `<button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove from archive">&times;</button> ${histBtn}`;
     else actions = histBtn;
 
     return `<tr>
@@ -417,7 +459,7 @@ function renderTable() {
       <td style="text-align:right;font-size:12px;color:var(--text-light)">${o.original_cost ? '$' + o.original_cost.toFixed(2) : '-'}</td>
       <td style="text-align:right">${isRequested || isOrdered ? `<input class="inline-cost" type="number" step="0.01" value="${o.new_cost || ''}" placeholder="$0.00" onchange="updateOrder(${o.id},'new_cost',this.value)">` : (o.new_cost ? '$' + o.new_cost.toFixed(2) : '-')}</td>
       <td><span class="badge ${badgeClass}">${o.status}</span></td>
-      <td style="font-size:12px;color:var(--text-light)">${orderedDate}</td>
+      <td style="font-size:12px;color:var(--text-light)">${dateCell}</td>
       <td><button class="btn btn-outline" style="font-size:11px;padding:3px 8px;${o.notes ? 'color:var(--accent);border-color:var(--accent);' : ''}" onclick="openNotesModal(${o.id})">${o.notes ? (o.notes.length > 20 ? o.notes.substring(0,20)+'...' : o.notes) : 'Notes'}</button></td>
       <td style="white-space:nowrap">${actions}</td>
     </tr>`;
@@ -469,7 +511,35 @@ async function addToList() {
   const requested_by = byInput.value.trim();
   const notes = notesInput.value.trim();
 
-  // Check if SKU is already on order
+  // ── PRE-CHECK 1: Was this SKU ever denied before? ─────────────────
+  // Even if the row was deleted from order_list, the order_history
+  // audit log keeps the denial trail forever — so the user always
+  // sees the warning. If they confirm, we fall through to the
+  // duplicate-on-order check (PRE-CHECK 2) and then the actual add.
+  try {
+    const r = await fetch(API + '/api/reorder-list/denied-check?sku=' + encodeURIComponent(sku))
+      .then(r => r.json());
+    if (r.count && r.count > 0) {
+      const latest = r.denials[0];
+      const dateOnly = (latest.timestamp || '').split(' ')[0] || (latest.timestamp || '').split('T')[0] || 'unknown';
+      const otherCount = r.count - 1;
+      document.getElementById('deniedWarnDetail').innerHTML =
+        `<strong>${escapeHtml(sku)}</strong> was previously denied.<br><br>` +
+        `<strong>Last denied:</strong> ${escapeHtml(dateOnly)}<br>` +
+        `<strong>Reason:</strong> ${latest.notes ? escapeHtml(latest.notes) : '<em>(no reason on file)</em>'}<br>` +
+        (latest.actor ? `<strong>By:</strong> ${escapeHtml(latest.actor)}<br>` : '') +
+        (otherCount > 0 ? `<br><em>${otherCount} earlier denial${otherCount === 1 ? '' : 's'} on file.</em><br>` : '') +
+        `<br>Do you still want to add it back to the reorder list?`;
+      pendingReorder = { sku, requested_by, notes };
+      document.getElementById('deniedWarnModal').classList.add('open');
+      return;
+    }
+  } catch (e) {
+    // Network blip — don't block adds because the check failed
+    console.warn('denied-check failed, continuing:', e);
+  }
+
+  // ── PRE-CHECK 2: Already on order (Requested or Ordered)? ────────
   const existing = allOrdersUnfiltered.find(o => o.sku === sku && (o.status === 'Ordered' || o.status === 'Requested'));
   if (existing) {
     const orderDate = existing.ordered_at ? (existing.ordered_at.split(' ')[0] || existing.ordered_at.split('T')[0]) : 'unknown date';
@@ -486,6 +556,14 @@ async function addToList() {
   }
 
   doAddToList(sku, requested_by, notes);
+}
+
+// HTML-safe text — used in the denied-warn modal. Same minimal escape as the
+// rest of this file's templates.
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[c]));
 }
 
 async function updateOrder(id, field, value) {
@@ -773,6 +851,46 @@ function confirmReorder() {
   closeConfirmModal();
   doAddToList(sku, requested_by, notes);
 }
+
+// Denied-warning modal handlers. After the user accepts the denial warning,
+// fall through to the duplicate-on-order check (PRE-CHECK 2 in addToList) so
+// they STILL get warned if the SKU is also currently on order.
+function closeDeniedWarnModal() {
+  document.getElementById('deniedWarnModal').classList.remove('open');
+  pendingReorder = null;
+}
+function proceedAfterDeniedWarn() {
+  if (!pendingReorder) return;
+  const { sku, requested_by, notes } = pendingReorder;
+  document.getElementById('deniedWarnModal').classList.remove('open');
+
+  // Re-run PRE-CHECK 2 (duplicate-on-order). If active, surface the second
+  // confirm modal; otherwise add directly.
+  const existing = allOrdersUnfiltered.find(o => o.sku === sku && (o.status === 'Ordered' || o.status === 'Requested'));
+  if (existing) {
+    const orderDate = existing.ordered_at ? (existing.ordered_at.split(' ')[0] || existing.ordered_at.split('T')[0]) : 'unknown date';
+    const qty = existing.production_qty || existing.suggested_qty || '?';
+    document.getElementById('confirmDetail').innerHTML =
+      `<strong>${escapeHtml(sku)}</strong> is currently on order.<br><br>` +
+      `<strong>Date Ordered:</strong> ${escapeHtml(orderDate)}<br>` +
+      `<strong>Qty Ordered:</strong> ${qty} units<br>` +
+      `<strong>Status:</strong> <span style="color:var(--orange);font-weight:700;">${escapeHtml(existing.status)}</span><br><br>` +
+      `Are you sure you want to request this SKU again?`;
+    pendingReorder = { sku, requested_by, notes };
+    document.getElementById('confirmModal').classList.add('open');
+    return;
+  }
+  pendingReorder = null;
+  doAddToList(sku, requested_by, notes);
+}
+
+// Close on overlay click + Escape — match the existing two modals
+document.getElementById('deniedWarnModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeDeniedWarnModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDeniedWarnModal();
+});
 
 async function doAddToList(sku, requested_by, notes) {
   await fetch(API + '/api/reorder-list', {
