@@ -208,11 +208,12 @@ tr:hover td { background: #faf6f1; }
       <table>
         <thead><tr>
           <th>SKU</th>
-          <th>Item Name</th>
+          <th title="When this row was requested (created_at timestamp)">Request Date</th>
           <th style="text-align:center">On Order?</th>
-          <th>Requested By</th>
-          <th style="text-align:center">Times</th>
+          <th style="text-align:center" title="Number of times this SKU has been requested historically">Times</th>
           <th style="text-align:center">Stock</th>
+          <th style="text-align:center" title="Units sold across all channels in the last 30 days. Walmart only for now — Amazon and Target+ slots are reserved.">Sold 30d</th>
+          <th style="text-align:center" title="Units sent to WFS on shipments in the last 90 days">WFS 90d</th>
           <th style="text-align:center">Suggested Qty</th>
           <th style="text-align:center">Production Qty</th>
           <th style="text-align:right">Original Cost</th>
@@ -406,7 +407,7 @@ function renderTable() {
     : [];
 
   if (!display.length && !historyRows.length) {
-    tbody.innerHTML = `<tr><td colspan="14" class="empty-msg">${searchQ ? 'No matching SKUs and no history for "' + searchQ + '"' : 'No items yet. Add SKUs above to get started.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15" class="empty-msg">${searchQ ? 'No matching SKUs and no history for "' + searchQ + '"' : 'No items yet. Add SKUs above to get started.'}</td></tr>`;
     document.getElementById('rowCount').textContent = searchQ ? `0 of ${allOrders.length} items` : '';
     return;
   }
@@ -447,13 +448,53 @@ function renderTable() {
     else if (isDenied) actions = `<button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove from archive">&times;</button> ${histBtn}`;
     else actions = histBtn;
 
+    // Request Date — created_at timestamp of the order_list row.
+    // Show "Apr 13, 14:25" style — short enough to not blow up the column.
+    const reqDt = o.created_at ? new Date(o.created_at.replace(' ', 'T') + 'Z') : null;
+    const reqDateStr = reqDt && !isNaN(reqDt) ?
+      reqDt.toLocaleDateString('en-US', {month:'short', day:'numeric'}) +
+      ' ' + reqDt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:false}) : '';
+    // Cross-channel 30-day sales — Walmart + Amazon + Target+ all live.
+    const wm30 = +o.walmart_units30 || 0;
+    const az30 = +o.amazon_units30  || 0;
+    const tg30 = +o.target_units30  || 0;
+    const total30 = +o.total_units30 || (wm30 + az30 + tg30);
+    const wmRev30 = +o.walmart_revenue30 || 0;
+    const azRev30 = +o.amazon_revenue30  || 0;
+    const tgRev30 = +o.target_revenue30  || 0;
+    const totalRev30 = +o.total_revenue30 || (wmRev30 + azRev30 + tgRev30);
+    const fmtRow = (label, units, rev) => `${label}: ${units}${rev ? ' ($' + rev.toFixed(0) + ')' : ''}`;
+    const sold30Tooltip = [
+      fmtRow('Walmart', wm30, wmRev30),
+      fmtRow('Amazon ', az30, azRev30),
+      fmtRow('Target+', tg30, tgRev30),
+      ``,
+      `Total (30d): ${total30} units · $${totalRev30.toFixed(0)}`,
+    ].join('\n');
+    // Compact breakdown shown in the cell — uses initials for the channels
+    // that have any sales so eyes can scan: "W 12 · A 5 · T 3" etc.
+    const breakdown = [
+      wm30 > 0 ? `W ${wm30}` : null,
+      az30 > 0 ? `A ${az30}` : null,
+      tg30 > 0 ? `T ${tg30}` : null,
+    ].filter(Boolean).join(' · ');
+    const sold30Cell = total30 > 0
+      ? `<span title="${sold30Tooltip}" style="font-weight:600;">${total30}${breakdown ? ` <span style="color:#888;font-weight:400;font-size:10px;">(${breakdown})</span>` : ''}</span>`
+      : `<span title="${sold30Tooltip}" style="color:#bbb;">0</span>`;
+    // WFS units shipped in the last 90 days (placed on shipments)
+    const wfs90 = +o.wfs_sent_90d || 0;
+    const wfs90Cell = wfs90 > 0
+      ? `<span title="Units placed on shipments to WFS in the last 90 days" style="font-weight:600;color:var(--orange,#c08040);">${wfs90}</span>`
+      : `<span title="No WFS shipments in 90 days" style="color:#bbb;">0</span>`;
+
     return `<tr>
-      <td class="sku-cell">${o.sku}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="${o.item_name || ''}">${o.item_name || ''}</td>
+      <td class="sku-cell" title="${(o.item_name || '').replace(/"/g,'&quot;')}">${o.sku}</td>
+      <td style="font-size:11px;color:var(--text-light);white-space:nowrap;">${reqDateStr}</td>
       <td class="check-col">${isOrdered ? '<span style="color:var(--orange)">&#10003;</span>' : isReceived ? '<span style="color:var(--green)">&#10003;</span>' : ''}</td>
-      <td style="font-size:12px">${o.requested_by || ''}</td>
       <td class="times-col">${o.times_requested || 1}</td>
       <td class="stock-col"><span class="stock-val ${stockClass}">${o.current_stock > 0 ? Math.floor(o.current_stock) : 'OOS'}</span></td>
+      <td style="text-align:center;">${sold30Cell}</td>
+      <td style="text-align:center;">${wfs90Cell}</td>
       <td style="text-align:center">${isRequested ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="0" onchange="updateOrder(${o.id},'suggested_qty',this.value)">` : (o.suggested_qty || '-')}</td>
       <td style="text-align:center">${isRequested || isOrdered ? `<input class="inline-num" type="number" value="${o.production_qty || ''}" placeholder="0" onchange="updateOrder(${o.id},'production_qty',this.value)">` : (o.production_qty || '-')}</td>
       <td style="text-align:right;font-size:12px;color:var(--text-light)">${o.original_cost ? '$' + o.original_cost.toFixed(2) : '-'}</td>
@@ -475,16 +516,20 @@ function renderTable() {
     const dividerLabel = display.length
       ? `Past activity for ${searchQ} (${historyRows.length})`
       : `Past activity for ${searchQ} (${historyRows.length}) — no live entries`;
-    let html = `<tr style="background:#f5efe7;"><td colspan="14" style="padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A5C4F;font-weight:600;">─── ${dividerLabel} ───</td></tr>`;
+    // Match the new 15-column layout: SKU · Request Date · OnOrder · Times ·
+    // Stock · Sold 30d · WFS 90d · Suggested · Production · Original · New ·
+    // Status · Date Ordered · Notes · Actions
+    let html = `<tr style="background:#f5efe7;"><td colspan="15" style="padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A5C4F;font-weight:600;">─── ${dividerLabel} ───</td></tr>`;
     html += historyRows.map(h => {
       const ts = (h.timestamp || '').replace('T', ' ').slice(0, 16);
       return `<tr style="background:#fafafa;">
         <td class="sku-cell">${h.sku}</td>
         <td style="font-size:11px;color:#888;font-style:italic;">— history —</td>
         <td class="check-col"></td>
-        <td style="font-size:11px;color:#666;">${h.actor || ''}</td>
         <td class="times-col"></td>
         <td class="stock-col"></td>
+        <td style="text-align:center;color:#888;">-</td>
+        <td style="text-align:center;color:#888;">-</td>
         <td style="text-align:center;color:#888;">-</td>
         <td style="text-align:center;color:#666;">${h.qty || '-'}</td>
         <td style="text-align:right;color:#888;">-</td>
