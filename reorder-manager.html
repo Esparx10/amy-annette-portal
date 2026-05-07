@@ -1016,15 +1016,64 @@ document.addEventListener('keydown', e => {
 });
 
 async function doAddToList(sku, requested_by, notes) {
-  await fetch(API + '/api/reorder-list', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sku, requested_by, notes }),
-  });
+  // Optimistic update — push a placeholder row into the in-memory state and
+  // re-render BEFORE the network round-trip completes. The user sees the
+  // new row instantly; loadOrders() then comes through and replaces it
+  // with the canonical server-side row (which will have a real id, plus
+  // joined sales / WFS / target+ data).
+  const optimisticRow = {
+    id: '__pending_' + Date.now(),
+    sku,
+    requested_by,
+    notes,
+    times_requested: 1,
+    current_stock: 0,
+    suggested_qty: 0,
+    production_qty: 0,
+    original_cost: 0,
+    new_cost: 0,
+    status: 'Requested',
+    created_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    ordered_at: null,
+    received_at: null,
+    item_name: '',
+    list_price: 0,
+    walmart_units30: 0, walmart_units90: 0, walmart_revenue30: 0,
+    wfs_sent_90d: 0,
+    amazon_units30: 0, amazon_revenue30: 0, amazon_data_source: 'none',
+    target_units30: 0, target_revenue30: 0,
+    total_units30: 0, total_revenue30: 0,
+    _optimistic: true,  // a flag the renderer can use to fade-in the row
+  };
+  allOrdersUnfiltered = [optimisticRow, ...allOrdersUnfiltered];
+  if (currentFilter === 'all' || currentFilter === 'requested') {
+    allOrders = [optimisticRow, ...allOrders];
+    renderTable();
+  }
+  // Clear the form immediately so the user can keep adding more
   document.getElementById('addSku').value = '';
   document.getElementById('addNotes').value = '';
   closeAc();
   document.getElementById('addSku').focus();
-  loadOrders();
+
+  // Fire the actual POST + reload. If anything goes wrong, the placeholder
+  // row will still be replaced once loadOrders() returns canonical state.
+  try {
+    const r = await fetch(API + '/api/reorder-list', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sku, requested_by, notes }),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      console.error('add failed:', err);
+      alert('Failed to add ' + sku + ': ' + err);
+    }
+  } catch (e) {
+    console.error('add network error:', e);
+    alert('Network error adding ' + sku + ': ' + e.message);
+  }
+  // Replace optimistic state with authoritative server data
+  await loadOrders();
 }
 
 // ─── Spreadsheet Drop Zone ───
