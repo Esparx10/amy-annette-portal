@@ -507,6 +507,12 @@ function renderTable() {
     const amzSourceLabel = amzSrc === 'live' ? `live · ${amzAgeStr}`
                         : amzSrc === 'snapshot' ? `snapshot · ${amzAgeStr}${amzStale ? ' ⚠' : ''}`
                         : 'no data';
+    // Amazon FBA / FBM split — only populated when amzSrc === 'live'
+    // (the legacy xlsx snapshot didn't break out by fulfillment channel).
+    const azFba    = +o.amazon_fba_units    || 0;
+    const azFbm    = +o.amazon_fbm_units    || 0;
+    const azFbaRev = +o.amazon_fba_revenue  || 0;
+    const azFbmRev = +o.amazon_fbm_revenue  || 0;
     // WFS units shipped in the last 90 days. Used by both the rich tooltip
     // card (in the "WFS sent" footer) and the dedicated WFS 90d column cell.
     const wfs90 = +o.wfs_sent_90d || 0;
@@ -538,6 +544,20 @@ function renderTable() {
           <tbody>
             ${channelRow('🛒', 'Walmart', wm30, wmRev30, 'live', '#7a9e7e')}
             ${channelRow('📦', 'Amazon&nbsp;', az30, azRev30, amzSourceLabel, amzStale ? '#c08040' : (amzSrc === 'live' ? '#7a9e7e' : '#aaa'))}
+            ${(amzSrc === 'live' && (azFba + azFbm) > 0) ? `
+              <tr style="font-size:10px;color:#7a6555;">
+                <td style="padding:1px 8px 1px 22px;">↳ FBA (Amazon-fulfilled)</td>
+                <td style="padding:1px 8px;text-align:right;">${azFba.toLocaleString()}</td>
+                <td style="padding:1px 8px;text-align:right;">${azFbaRev > 0 ? '$' + Math.round(azFbaRev).toLocaleString() : '—'}</td>
+                <td></td>
+              </tr>
+              <tr style="font-size:10px;color:#7a6555;">
+                <td style="padding:1px 8px 1px 22px;">↳ FBM (Seller-fulfilled)</td>
+                <td style="padding:1px 8px;text-align:right;">${azFbm.toLocaleString()}</td>
+                <td style="padding:1px 8px;text-align:right;">${azFbmRev > 0 ? '$' + Math.round(azFbmRev).toLocaleString() : '—'}</td>
+                <td></td>
+              </tr>
+            ` : ''}
             ${channelRow('🎯', 'Target+', tg30, tgRev30, 'live', '#7a9e7e')}
             <tr style="border-top:1px solid #e5dfd6;">
               <td style="padding:5px 8px;font-weight:700;">Total</td>
