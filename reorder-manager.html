@@ -504,7 +504,11 @@ function renderTable() {
       amzAgeStr = ageDays >= 1 ? `${ageDays}d ago` : `${Math.max(0, ageHours)}h ago`;
       amzStale = amzSrc === 'snapshot' && ageDays > 7;
     }
-    const amzSourceLabel = amzSrc === 'live' ? `live · ${amzAgeStr}`
+    // amazon_alias_sku is set when the data came from a different SKU
+    // (e.g. DES237 row showing DES237-FBM's sales). Add "via X" hint.
+    const aliasHint = (o.amazon_alias_sku && o.amazon_alias_sku !== o.sku)
+      ? ` · via ${o.amazon_alias_sku}` : '';
+    const amzSourceLabel = amzSrc === 'live' ? `live · ${amzAgeStr}${aliasHint}`
                         : amzSrc === 'snapshot' ? `snapshot · ${amzAgeStr}${amzStale ? ' ⚠' : ''}`
                         : 'no data';
     // Amazon FBA / FBM split — only populated when amzSrc === 'live'
