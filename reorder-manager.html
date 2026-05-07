@@ -507,6 +507,8 @@ function renderTable() {
     const amzSourceLabel = amzSrc === 'live' ? `live · ${amzAgeStr}`
                         : amzSrc === 'snapshot' ? `snapshot · ${amzAgeStr}${amzStale ? ' ⚠' : ''}`
                         : 'no data';
+    // WFS units shipped in the last 90 days. Used by both the rich tooltip
+    // card (in the "WFS sent" footer) and the dedicated WFS 90d column cell.
     const wfs90 = +o.wfs_sent_90d || 0;
 
     // Build a proper rich hover card — a real div that appears on hover via
@@ -558,8 +560,7 @@ function renderTable() {
     const sold30Cell = total30 > 0
       ? `<span class="sold30-wrap" style="position:relative;font-weight:600;cursor:help;">${total30}${breakdown ? ` <span style="color:#888;font-weight:400;font-size:10px;">(${breakdown})</span>` : ''}${reportCard}</span>`
       : `<span class="sold30-wrap" style="position:relative;color:#bbb;cursor:help;">0${reportCard}</span>`;
-    // WFS units shipped in the last 90 days (placed on shipments)
-    const wfs90 = +o.wfs_sent_90d || 0;
+    // wfs90 is already declared above (used by the rich tooltip card too)
     const wfs90Cell = wfs90 > 0
       ? `<span title="Units placed on shipments to WFS in the last 90 days" style="font-weight:600;color:var(--orange,#c08040);">${wfs90}</span>`
       : `<span title="No WFS shipments in 90 days" style="color:#bbb;">0</span>`;
