@@ -878,8 +878,8 @@ function downloadExcel() {
   const date = new Date().toISOString().split('T')[0];
   const searchQ = (document.getElementById('orderSearch')?.value || '').trim().toUpperCase();
 
-  // STRICT SEARCH FILTER — if a search is active, export ONLY matching rows.
-  // No status tab leakage, no extra columns.
+  // STRICT SEARCH FILTER — if a search is active, export ONLY matching rows
+  // across ALL statuses. Otherwise export everything currently on the page.
   const liveRows = searchQ
     ? allOrdersUnfiltered.filter(o => (o.sku || '').toUpperCase().includes(searchQ))
     : allOrders;
@@ -888,43 +888,112 @@ function downloadExcel() {
     return alert('No items to export' + (searchQ ? ' for "' + searchQ + '"' : ''));
   }
 
-  // Columns: SKU · Cost · Request Date · Approval Date · Qty Ordered · Notes
-  const fmtDate = (s) => s ? String(s).replace('T', ' ').split('.')[0].slice(0, 10) : '';
-  const wsData = [
-    ['SKU', 'Cost', 'Request Date', 'Approval Date', 'Qty Ordered', 'Notes'],
+  const fmtDate = (s) => s ? String(s).replace('T', ' ').split('.')[0].slice(0, 16) : '';
+  const num = (v) => (v == null || v === '') ? '' : (+v || 0);
+
+  // Full column set — every field rendered on the page, plus the rich cross-
+  // channel breakdowns that previously only lived in the hover tooltip.
+  // Each cell uses the same value the UI sees so the spreadsheet matches the
+  // dashboard exactly.
+  const headers = [
+    'SKU', 'Product Name', 'Status',
+    'Request Date', 'Approval Date', 'Denied At', 'Denied Reason',
+    'Suggested Qty', 'Production Qty', 'Times Requested',
+    'Original Cost', 'New Cost', 'List Price', 'Total Cost (Qty × Cost)',
+    'WFS Stock', 'Inbound to WFS', 'Approved on List',
+    // 30-day cross-channel
+    'Total 30d Units', 'Total 30d Revenue',
+    'Walmart 30d Units', 'Walmart 30d Revenue',
+    'Amazon 30d Units', 'Amazon 30d Revenue',
+    'Amazon FBA Units', 'Amazon FBA Revenue',
+    'Amazon FBM Units', 'Amazon FBM Revenue',
+    'Amazon Data Source', 'Amazon Alias SKU', 'Amazon Last Imported',
+    'Target+ 30d Units', 'Target+ 30d Revenue',
+    // Longer-window context
+    'Walmart 90d Units', 'WFS Sent (90d)',
+    'Requested By', 'Notes',
   ];
+  const wsData = [headers];
 
   for (const o of liveRows) {
+    const wm30 = num(o.walmart_units30);
+    const az30 = num(o.amazon_units30);
+    const tg30 = num(o.target_units30);
+    const total30 = num(o.total_units30) || (wm30 + az30 + tg30);
+    const wmRev30 = num(o.walmart_revenue30);
+    const azRev30 = num(o.amazon_revenue30);
+    const tgRev30 = num(o.target_revenue30);
+    const totalRev30 = num(o.total_revenue30) || (wmRev30 + azRev30 + tgRev30);
+    const cost = num(o.new_cost) || num(o.original_cost) || 0;
+    const qty = num(o.production_qty) || num(o.suggested_qty) || 0;
     wsData.push([
       o.sku,
-      o.new_cost || o.original_cost || '',
+      o.item_name || o.productName || '',
+      o.status || '',
       fmtDate(o.created_at),
       fmtDate(o.ordered_at),
-      o.production_qty || '',
+      fmtDate(o.denied_at),
+      o.denied_reason || '',
+      num(o.suggested_qty),
+      num(o.production_qty),
+      num(o.times_requested),
+      num(o.original_cost),
+      num(o.new_cost),
+      num(o.list_price),
+      qty && cost ? +(qty * cost).toFixed(2) : '',
+      num(o.wfsStock || o.wfs_stock),
+      num(o.inbound),
+      num(o.approved_qty),
+      total30, totalRev30,
+      wm30, wmRev30,
+      az30, azRev30,
+      num(o.amazon_fba_units), num(o.amazon_fba_revenue),
+      num(o.amazon_fbm_units), num(o.amazon_fbm_revenue),
+      o.amazon_data_source || '',
+      o.amazon_alias_sku || '',
+      fmtDate(o.amazon_last_imported),
+      tg30, tgRev30,
+      num(o.walmart_units90),
+      num(o.wfs_sent_90d),
+      o.requested_by || '',
       o.notes || '',
     ]);
   }
 
-  // If a SKU is being searched, also include past actions (approvals/denials etc.)
+  // Single-SKU history append — preserved from prior behavior.
   if (searchQ && _historyForSku && _historyForSku.sku === searchQ) {
     for (const h of _historyForSku.rows) {
       const noteParts = [];
       if (h.action) noteParts.push('[' + h.action.toUpperCase() + ']');
       if (h.notes) noteParts.push(h.notes);
       if (h.actor) noteParts.push('by ' + h.actor);
-      wsData.push([
-        h.sku,
-        h.cost || '',
-        '',                                                    // request date — not separately tracked in history
-        h.action === 'approved' ? fmtDate(h.timestamp) : '',  // approval date if this row is the approval event
-        h.qty || '',
-        noteParts.join(' '),
-      ]);
+      // Pad the history row out to the full column count so columns stay aligned
+      const row = new Array(headers.length).fill('');
+      row[0]  = h.sku;
+      row[2]  = '[HISTORY]';
+      row[3]  = fmtDate(h.timestamp);
+      row[4]  = h.action === 'approved' ? fmtDate(h.timestamp) : '';
+      row[5]  = h.action === 'denied'   ? fmtDate(h.timestamp) : '';
+      row[8]  = num(h.qty);
+      row[11] = num(h.cost);
+      row[headers.length - 1] = noteParts.join(' ');
+      wsData.push(row);
     }
   }
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{wch:18}, {wch:10}, {wch:14}, {wch:14}, {wch:12}, {wch:40}];
+  // Reasonable column widths — wider for text columns, narrower for numbers
+  ws['!cols'] = headers.map(h => {
+    if (h === 'Product Name') return { wch: 50 };
+    if (h === 'Notes' || h === 'Denied Reason') return { wch: 40 };
+    if (/Date|Imported/.test(h)) return { wch: 17 };
+    if (h === 'SKU') return { wch: 16 };
+    if (/Revenue|Cost|Price/.test(h)) return { wch: 13 };
+    if (h === 'Amazon Data Source' || h === 'Amazon Alias SKU' || h === 'Status') return { wch: 14 };
+    return { wch: 11 };
+  });
+  // Freeze the header row + the SKU column for easier horizontal scrolling
+  ws['!freeze'] = { xSplit: 1, ySplit: 1 };
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Reorder');
   const filename = searchQ ? `Reorder-${searchQ}-${date}.xlsx` : `Reorder-${date}.xlsx`;
