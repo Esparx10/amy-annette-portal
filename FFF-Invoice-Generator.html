@@ -572,6 +572,11 @@ let _invoiceCache = [];
 let _settingsCache = {};
 
 async function initFFFDB() {
+  // One-time migration: push any existing browser data (IndexedDB/localStorage) to server
+  if (!localStorage.getItem('fff_migrated_to_server')) {
+    try { await migrateLocalDataToServer(); } catch(e) { console.warn('Migration skipped:', e.message); }
+  }
+
   // Load all data from server on startup
   try {
     const [masterRes, invoiceRes, settingsRes] = await Promise.all([
@@ -585,6 +590,69 @@ async function initFFFDB() {
   } catch(e) {
     console.error('FFF API init failed:', e.message);
   }
+}
+
+// Migrate existing browser data (IndexedDB sql.js DB + localStorage) to server
+async function migrateLocalDataToServer() {
+  let localMaster = [], localInvoices = [], localSettings = {};
+
+  // Try IndexedDB (sql.js database)
+  try {
+    const dbBuf = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('fff_invoice_db', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('db');
+      req.onsuccess = e => {
+        const store = e.target.result.transaction('db', 'readonly').objectStore('db');
+        const get = store.get('main');
+        get.onsuccess = () => resolve(get.result || null);
+        get.onerror = () => resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    });
+    if (dbBuf) {
+      const SQL = await initSqlJs({ locateFile: f => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/' + f });
+      const db = new SQL.Database(dbBuf);
+      const mr = db.exec("SELECT brand, product_id, sku, price FROM master_data ORDER BY id");
+      if (mr.length) localMaster = mr[0].values.map(r => ({ brand: r[0], productId: r[1], sku: r[2], price: r[3] }));
+      const ir = db.exec("SELECT id, sale_name, date, created_at, items_json, total_qty, total_amount FROM invoice_history ORDER BY created_at DESC");
+      if (ir.length) localInvoices = ir[0].values.map(r => ({ id: r[0], saleName: r[1], date: r[2], createdAt: r[3], items: JSON.parse(r[4] || '[]'), totalQty: r[5], totalAmount: r[6] }));
+      const sr = db.exec("SELECT key, value FROM settings");
+      if (sr.length) sr[0].values.forEach(r => localSettings[r[0]] = r[1]);
+      db.close();
+    }
+  } catch(e) { console.warn('IndexedDB migration failed:', e.message); }
+
+  // Fallback: try localStorage
+  if (!localMaster.length) {
+    try { const ls = localStorage.getItem('fff_master_data'); if (ls) localMaster = JSON.parse(ls); } catch(e) {}
+  }
+  if (!localInvoices.length) {
+    try { const ls = localStorage.getItem('fff_invoice_history'); if (ls) localInvoices = JSON.parse(ls); } catch(e) {}
+  }
+  if (!Object.keys(localSettings).length) {
+    try { const ls = localStorage.getItem('fff_settings'); if (ls) localSettings = JSON.parse(ls); } catch(e) {}
+  }
+
+  // Push to server (merge — don't overwrite if server already has data)
+  if (localMaster.length) {
+    const serverMaster = await fetch(FFF_API + '/api/fff/master', { headers: FFF_HEADERS }).then(r => r.json());
+    if (!serverMaster.master || !serverMaster.master.length) {
+      await fetch(FFF_API + '/api/fff/master', { method: 'POST', headers: FFF_HEADERS, body: JSON.stringify({ master: localMaster }) });
+      console.log('[FFF] Migrated', localMaster.length, 'master rows to server');
+    }
+  }
+  if (localInvoices.length) {
+    for (const inv of localInvoices) {
+      try { await fetch(FFF_API + '/api/fff/invoices', { method: 'POST', headers: FFF_HEADERS, body: JSON.stringify(inv) }); } catch(e) {}
+    }
+    console.log('[FFF] Migrated', localInvoices.length, 'invoices to server');
+  }
+  if (Object.keys(localSettings).length) {
+    await fetch(FFF_API + '/api/fff/settings', { method: 'POST', headers: FFF_HEADERS, body: JSON.stringify({ settings: localSettings }) });
+  }
+
+  localStorage.setItem('fff_migrated_to_server', 'true');
+  console.log('[FFF] Migration complete');
 }
 
 function dbLoadMasterData() { return _masterCache; }
