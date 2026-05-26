@@ -248,13 +248,6 @@
 <!-- DASHBOARD TAB -->
 <div id="tab-dashboard" class="tab-content">
 <div class="container">
-  <!-- Invoice History -->
-  <div class="card">
-    <h2>Invoice History</h2>
-    <p style="font-size:12px;color:#888;margin-bottom:12px;">Invoices are saved automatically when downloaded. Dashboard metrics are built from these invoices.</p>
-    <div id="invoiceHistoryList"></div>
-  </div>
-
   <!-- Event Summary -->
   <div class="card">
     <h2>Events</h2>
@@ -314,10 +307,9 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Event</th>
-          <th>Brand</th>
-          <th>Product ID</th>
           <th>Our SKU</th>
+          <th>Product ID</th>
+          <th>Brand</th>
           <th>QTY Sold</th>
           <th>Unit Price</th>
           <th>Revenue</th>
@@ -326,6 +318,13 @@
       </thead>
       <tbody id="dashBody"></tbody>
     </table>
+  </div>
+
+  <!-- Invoice History (moved to bottom) -->
+  <div class="card">
+    <h2>Invoice History</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">Invoices are saved automatically when downloaded. Dashboard metrics are built from these invoices.</p>
+    <div id="invoiceHistoryList"></div>
   </div>
 </div>
 </div>
@@ -1458,17 +1457,17 @@ function renderDashboard() {
       </div>`;
     }).join('') : '';
 
-  // ── Data table with Event column ──
+  // ── Data table: SKU first, clickable Product ID, no Event column ──
   const tbody = document.getElementById('dashBody');
   if (tbody) {
     tbody.innerHTML = items.map((r, i) => {
       const pctOfTotal = totalUnits > 0 ? (r.qty / totalUnits * 100).toFixed(1) : '0';
+      const walmartUrl = 'https://www.walmart.com/ip/' + encodeURIComponent(r.productId);
       return `<tr>
         <td style="color:#bbb;font-size:11px;">${i + 1}</td>
-        <td style="font-size:12px;">${esc(r.eventList)}</td>
-        <td>${esc(r.brand)}</td>
-        <td>${esc(r.productId)}</td>
         <td>${esc(r.sku)}</td>
+        <td><a href="${walmartUrl}" target="_blank" style="color:#0070C0;text-decoration:none;">${esc(r.productId)}</a></td>
+        <td>${esc(r.brand)}</td>
         <td style="font-weight:600;">${r.qty}</td>
         <td>$${r.price.toFixed(2)}</td>
         <td class="amount">$${r.revenue.toFixed(2)}</td>
