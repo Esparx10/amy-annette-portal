@@ -255,12 +255,27 @@
     <div id="invoiceHistoryList"></div>
   </div>
 
+  <!-- Event Summary -->
+  <div class="card">
+    <h2>Events</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">Click an event name to filter Sales Metrics below.</p>
+    <div id="eventSummary"></div>
+  </div>
+
   <!-- Summary Cards -->
   <div class="card">
     <h2>Sales Metrics</h2>
-    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-      <input type="text" id="dashSearch" placeholder="Search by SKU, Product ID, or Brand..." oninput="renderDashboard()"
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+      <input type="text" id="dashSearch" placeholder="Search by SKU, Product ID, Brand, or Event..." oninput="renderDashboard()"
         style="flex:1;min-width:200px;padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+      <input type="date" id="dashDateFrom" onchange="renderDashboard()" title="From date"
+        style="padding:8px 10px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+      <span style="color:#888;font-size:12px;">to</span>
+      <input type="date" id="dashDateTo" onchange="renderDashboard()" title="To date"
+        style="padding:8px 10px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+      <select id="dashEvent" onchange="renderDashboard()" style="padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+        <option value="">All Events</option>
+      </select>
       <select id="dashSort" onchange="renderDashboard()" style="padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
         <option value="qty-desc">QTY: High to Low</option>
         <option value="qty-asc">QTY: Low to High</option>
@@ -268,11 +283,13 @@
         <option value="rev-asc">Revenue: Low to High</option>
         <option value="sku-asc">SKU: A-Z</option>
       </select>
+      <button onclick="clearDashFilters()" style="padding:8px 12px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#f5f5f5;">Clear</button>
     </div>
+    <div id="dashFilterTag" style="margin-bottom:10px;"></div>
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
       <div style="background:#eef3fa;border-radius:10px;padding:16px;text-align:center;">
-        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Invoices</div>
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Events</div>
         <div id="dashTotalOrders" style="font-size:28px;font-weight:700;color:#1a3a5c;">0</div>
       </div>
       <div style="background:#eef3fa;border-radius:10px;padding:16px;text-align:center;">
@@ -297,6 +314,7 @@
       <thead>
         <tr>
           <th>#</th>
+          <th>Event</th>
           <th>Brand</th>
           <th>Product ID</th>
           <th>Our SKU</th>
@@ -1268,28 +1286,105 @@ function getInvoiceHistory() {
   return dbGetInvoiceHistory();
 }
 
-function deleteInvoice(id) {
+async function deleteInvoice(id) {
   const history = getInvoiceHistory();
   const inv = history.find(h => h.id === id);
   if (!inv) return;
   if (!confirm(`Delete invoice "${inv.saleName}" (${inv.date})?\n\nThis will remove it from the dashboard. This cannot be undone.`)) return;
-  dbDeleteInvoice(id);
+  await dbDeleteInvoice(id);
   renderDashboard();
   showToast('Invoice deleted');
 }
 
+function clearDashFilters() {
+  document.getElementById('dashSearch').value = '';
+  document.getElementById('dashDateFrom').value = '';
+  document.getElementById('dashDateTo').value = '';
+  document.getElementById('dashEvent').value = '';
+  renderDashboard();
+}
+
+function filterByEvent(eventName) {
+  document.getElementById('dashEvent').value = eventName;
+  renderDashboard();
+}
+
 function renderDashboard() {
-  const history = getInvoiceHistory();
+  const allHistory = getInvoiceHistory();
   const search = (document.getElementById('dashSearch')?.value || '').toLowerCase();
   const sort = document.getElementById('dashSort')?.value || 'qty-desc';
+  const dateFrom = document.getElementById('dashDateFrom')?.value || '';
+  const dateTo = document.getElementById('dashDateTo')?.value || '';
+  const eventFilter = document.getElementById('dashEvent')?.value || '';
 
-  // Render invoice history list
+  // ── Populate event dropdown from all invoices ──
+  const eventSelect = document.getElementById('dashEvent');
+  if (eventSelect) {
+    const allEvents = [...new Set(allHistory.map(inv => inv.saleName))].sort();
+    const prev = eventSelect.value;
+    const opts = '<option value="">All Events</option>' +
+      allEvents.map(e => `<option value="${esc(e)}"${e === prev ? ' selected' : ''}>${esc(e)}</option>`).join('');
+    eventSelect.innerHTML = opts;
+  }
+
+  // ── Filter invoices by date range and event ──
+  let history = allHistory;
+  if (dateFrom) {
+    history = history.filter(inv => inv.date >= dateFrom);
+  }
+  if (dateTo) {
+    history = history.filter(inv => inv.date <= dateTo);
+  }
+  if (eventFilter) {
+    history = history.filter(inv => inv.saleName === eventFilter);
+  }
+
+  // ── Show active filter tags ──
+  const tagEl = document.getElementById('dashFilterTag');
+  if (tagEl) {
+    const tags = [];
+    if (dateFrom || dateTo) {
+      tags.push(`<span style="display:inline-block;background:#e0ecff;color:#0070C0;padding:3px 10px;border-radius:12px;font-size:11px;margin-right:6px;">📅 ${dateFrom || '...'} → ${dateTo || '...'}</span>`);
+    }
+    if (eventFilter) {
+      tags.push(`<span style="display:inline-block;background:#fff3cd;color:#856404;padding:3px 10px;border-radius:12px;font-size:11px;margin-right:6px;">🏷️ ${esc(eventFilter)}</span>`);
+    }
+    tagEl.innerHTML = tags.join('');
+  }
+
+  // ── Event Summary section ──
+  const eventSummaryEl = document.getElementById('eventSummary');
+  if (eventSummaryEl) {
+    const eventMap = {};
+    history.forEach(inv => {
+      if (!eventMap[inv.saleName]) {
+        eventMap[inv.saleName] = { count: 0, totalQty: 0, totalRev: 0 };
+      }
+      eventMap[inv.saleName].count++;
+      eventMap[inv.saleName].totalQty += inv.totalQty;
+      eventMap[inv.saleName].totalRev += inv.totalAmount;
+    });
+    const events = Object.entries(eventMap).sort((a, b) => b[1].totalRev - a[1].totalRev);
+    if (events.length === 0) {
+      eventSummaryEl.innerHTML = '<p style="color:#999;font-size:13px;">No events found.</p>';
+    } else {
+      eventSummaryEl.innerHTML = '<table style="width:100%;"><thead><tr><th>Event Name</th><th>Invoices</th><th>Total QTY</th><th>Total Revenue</th></tr></thead><tbody>' +
+        events.map(([name, d]) => `<tr>
+          <td><a href="#" onclick="filterByEvent('${esc(name.replace(/'/g, "\\'"))}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(name)}</a></td>
+          <td>${d.count}</td>
+          <td>${d.totalQty.toLocaleString()}</td>
+          <td class="amount">$${d.totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>`).join('') + '</tbody></table>';
+    }
+  }
+
+  // ── Render invoice history list ──
   const histList = document.getElementById('invoiceHistoryList');
   if (histList) {
     if (history.length === 0) {
       histList.innerHTML = '<p style="color:#999;font-size:13px;">No invoices yet. Generate an invoice to see it here.</p>';
     } else {
-      histList.innerHTML = '<table style="width:100%;"><thead><tr><th>Sale Name</th><th>Date</th><th>Items</th><th>Total QTY</th><th>Total Amount</th><th></th></tr></thead><tbody>' +
+      histList.innerHTML = '<table style="width:100%;"><thead><tr><th>Event</th><th>Date</th><th>Items</th><th>Total QTY</th><th>Total Amount</th><th></th></tr></thead><tbody>' +
         history.map(inv => `<tr>
           <td>${esc(inv.saleName)}</td>
           <td>${esc(inv.date)}</td>
@@ -1301,33 +1396,37 @@ function renderDashboard() {
     }
   }
 
-  // Aggregate all invoice data by SKU
+  // ── Aggregate filtered invoice data by SKU ──
   const agg = {};
   history.forEach(inv => {
     inv.items.forEach(item => {
-      if (!agg[item.productId]) {
-        agg[item.productId] = { brand: item.brand, sku: item.sku, qty: 0, price: item.unitPrice, revenue: 0 };
+      const key = item.productId;
+      if (!agg[key]) {
+        agg[key] = { brand: item.brand, sku: item.sku, qty: 0, price: item.unitPrice, revenue: 0, events: new Set() };
       }
-      agg[item.productId].qty += item.qty;
-      agg[item.productId].revenue += item.amount;
+      agg[key].qty += item.qty;
+      agg[key].revenue += item.amount;
+      agg[key].events.add(inv.saleName);
     });
   });
 
   let items = Object.entries(agg).map(([pid, d]) => ({
-    productId: pid, brand: d.brand, sku: d.sku, qty: d.qty, price: d.price, revenue: d.revenue
+    productId: pid, brand: d.brand, sku: d.sku, qty: d.qty, price: d.price, revenue: d.revenue,
+    eventList: [...d.events].sort().join(', ')
   }));
 
-  // Filter
+  // ── Text search (includes event names) ──
   if (search) {
     items = items.filter(r =>
       r.productId.toLowerCase().includes(search) ||
       r.sku.toLowerCase().includes(search) ||
       r.brand.toLowerCase().includes(search) ||
+      r.eventList.toLowerCase().includes(search) ||
       String(r.qty).includes(search)
     );
   }
 
-  // Sort
+  // ── Sort ──
   switch (sort) {
     case 'qty-desc': items.sort((a, b) => b.qty - a.qty); break;
     case 'qty-asc': items.sort((a, b) => a.qty - b.qty); break;
@@ -1336,7 +1435,7 @@ function renderDashboard() {
     case 'sku-asc': items.sort((a, b) => a.sku.localeCompare(b.sku)); break;
   }
 
-  // Summary
+  // ── Summary cards ──
   const totalUnits = items.reduce((s, r) => s + r.qty, 0);
   const totalRev = items.reduce((s, r) => s + r.revenue, 0);
   document.getElementById('dashTotalOrders').textContent = history.length;
@@ -1344,7 +1443,7 @@ function renderDashboard() {
   document.getElementById('dashTotalRev').textContent = '$' + totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   document.getElementById('dashUniqueSKUs').textContent = Object.keys(agg).length;
 
-  // Chart - top 10 sellers
+  // ── Chart - top 10 sellers ──
   const top10 = [...items].sort((a, b) => b.qty - a.qty).slice(0, 10);
   const maxQty = top10.length ? top10[0].qty : 1;
   document.getElementById('dashChart').innerHTML = top10.length ? '<div style="font-size:13px;font-weight:600;color:#1a3a5c;margin-bottom:8px;">Top Sellers</div>' +
@@ -1359,13 +1458,14 @@ function renderDashboard() {
       </div>`;
     }).join('') : '';
 
-  // Table
+  // ── Data table with Event column ──
   const tbody = document.getElementById('dashBody');
   if (tbody) {
     tbody.innerHTML = items.map((r, i) => {
       const pctOfTotal = totalUnits > 0 ? (r.qty / totalUnits * 100).toFixed(1) : '0';
       return `<tr>
         <td style="color:#bbb;font-size:11px;">${i + 1}</td>
+        <td style="font-size:12px;">${esc(r.eventList)}</td>
         <td>${esc(r.brand)}</td>
         <td>${esc(r.productId)}</td>
         <td>${esc(r.sku)}</td>
