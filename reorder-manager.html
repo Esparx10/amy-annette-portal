@@ -487,11 +487,14 @@ function renderTable() {
     const wm30 = +o.walmart_units30 || 0;
     const az30 = +o.amazon_units30  || 0;
     const tg30 = +o.target_units30  || 0;
-    const total30 = +o.total_units30 || (wm30 + az30 + tg30);
+    const fff30 = +o.fff_units30    || 0;
+    const total30 = +o.total_units30 || (wm30 + az30 + tg30 + fff30);
     const wmRev30 = +o.walmart_revenue30 || 0;
     const azRev30 = +o.amazon_revenue30  || 0;
     const tgRev30 = +o.target_revenue30  || 0;
-    const totalRev30 = +o.total_revenue30 || (wmRev30 + azRev30 + tgRev30);
+    const fffRev30 = +o.fff_revenue30    || 0;
+    const totalRev30 = +o.total_revenue30 || (wmRev30 + azRev30 + tgRev30 + fffRev30);
+    const fffSource = fff30 > 0 ? 'invoices' : 'no data';
     // Amazon data source: 'live' (SP-API orders sync), 'snapshot' (manual xlsx
     // import — flag staleness), or 'none' (no Amazon presence for this SKU).
     const amzSrc = o.amazon_data_source || 'none';
@@ -563,6 +566,7 @@ function renderTable() {
               </tr>
             ` : ''}
             ${channelRow('🎯', 'Target+', tg30, tgRev30, 'live', '#7a9e7e')}
+            ${channelRow('🔥', 'FFF', fff30, fffRev30, fffSource, fff30 > 0 ? '#7a9e7e' : '#aaa')}
             <tr style="border-top:1px solid #e5dfd6;">
               <td style="padding:5px 8px;font-weight:700;">Total</td>
               <td style="padding:5px 8px;text-align:right;font-weight:700;color:#3a2a1a;">${total30.toLocaleString()}</td>
@@ -580,6 +584,7 @@ function renderTable() {
       wm30 > 0 ? `W ${wm30}` : null,
       az30 > 0 ? `A ${az30}${amzStale ? '⚠' : ''}` : null,
       tg30 > 0 ? `T ${tg30}` : null,
+      fff30 > 0 ? `F ${fff30}` : null,
     ].filter(Boolean).join(' · ');
     const sold30Cell = total30 > 0
       ? `<span class="sold30-wrap" style="position:relative;font-weight:600;cursor:help;">${total30}${breakdown ? ` <span style="color:#888;font-weight:400;font-size:10px;">(${breakdown})</span>` : ''}${reportCard}</span>`
