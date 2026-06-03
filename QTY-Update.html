@@ -193,12 +193,18 @@
 </header>
 
 <div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('jewelry', this)">Woot Jewelry</button>
-  <button class="tab-btn" onclick="switchTab('toys', this)">Woot Toys</button>
+  <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('jewelry', this)">QTY Jewelry</button>
+  <button class="tab-btn" onclick="switchTab('toys', this)">QTY Toys</button>
+</div>
+
+<!-- DASHBOARD TAB -->
+<div class="tab-content active" id="tab-dashboard">
+  <iframe id="wootDashFrame" style="width:100%;height:calc(100vh - 110px);border:none;" src="about:blank"></iframe>
 </div>
 
 <!-- JEWELRY TAB -->
-<div class="tab-content active" id="tab-jewelry">
+<div class="tab-content" id="tab-jewelry">
   <div class="container">
     <div class="drop-zone" id="dropZone-jewelry">
       <div class="icon">💎</div>
@@ -3346,12 +3352,21 @@ function makeKey(sku) {
 }
 
 // Tab switching
+function getWCCUrl() {
+  return localStorage.getItem('wcc_tunnel_url') || localStorage.getItem('wcc_url') || 'http://localhost:4000';
+}
+
 function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
   btn.classList.add('active');
 }
+
+// Load dashboard iframe on page load
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('wootDashFrame').src = getWCCUrl() + '/woot';
+});
 
 // Init drop zones
 ['jewelry', 'toys'].forEach(tabId => {
