@@ -371,7 +371,7 @@
 
 <script>
 const WCC_URL_KEY = 'wcc_tunnel_url';
-const WCC_DEFAULT_URL = 'http://localhost:4000';
+const WCC_DEFAULT_URL = 'https://conservational-unvaccinated-dotty.ngrok-free.dev';
 function getWCCUrl() { return localStorage.getItem(WCC_URL_KEY) || localStorage.getItem('wcc_url') || WCC_DEFAULT_URL; }
 function api(path) { return getWCCUrl() + path; }
 
