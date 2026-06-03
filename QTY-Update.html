@@ -193,20 +193,12 @@
 </header>
 
 <div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard</button>
-  <button class="tab-btn" onclick="switchTab('jewelry', this)">QTY Jewelry</button>
-  <button class="tab-btn" onclick="switchTab('toys', this)">QTY Toys</button>
-</div>
-
-<!-- DASHBOARD TAB -->
-<div class="tab-content active" id="tab-dashboard">
-  <div style="display:flex;align-items:center;justify-content:center;height:calc(100vh - 130px);">
-    <a href="woot.html" style="display:inline-block;padding:20px 40px;background:linear-gradient(135deg,#CC5200,#FF6600);color:white;border-radius:12px;font-size:18px;font-weight:600;text-decoration:none;letter-spacing:1px;box-shadow:0 4px 16px rgba(204,82,0,0.3);transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Open Woot Dashboard</a>
-  </div>
+  <button class="tab-btn active" onclick="switchTab('jewelry', this)">Woot Jewelry</button>
+  <button class="tab-btn" onclick="switchTab('toys', this)">Woot Toys</button>
 </div>
 
 <!-- JEWELRY TAB -->
-<div class="tab-content" id="tab-jewelry">
+<div class="tab-content active" id="tab-jewelry">
   <div class="container">
     <div class="drop-zone" id="dropZone-jewelry">
       <div class="icon">💎</div>
