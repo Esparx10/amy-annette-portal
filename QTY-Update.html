@@ -200,7 +200,9 @@
 
 <!-- DASHBOARD TAB -->
 <div class="tab-content active" id="tab-dashboard">
-  <iframe id="wootDashFrame" style="width:100%;height:calc(100vh - 110px);border:none;" src="about:blank"></iframe>
+  <div style="display:flex;align-items:center;justify-content:center;height:calc(100vh - 130px);">
+    <a href="woot.html" style="display:inline-block;padding:20px 40px;background:linear-gradient(135deg,#CC5200,#FF6600);color:white;border-radius:12px;font-size:18px;font-weight:600;text-decoration:none;letter-spacing:1px;box-shadow:0 4px 16px rgba(204,82,0,0.3);transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Open Woot Dashboard</a>
+  </div>
 </div>
 
 <!-- JEWELRY TAB -->
@@ -3352,27 +3354,12 @@ function makeKey(sku) {
 }
 
 // Tab switching
-function getWCCUrl() {
-  return localStorage.getItem('wcc_url') || localStorage.getItem('wcc-url') || 'http://localhost:4000';
-}
-
-let _dashLoaded = false;
 function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
   btn.classList.add('active');
-  if (tabId === 'dashboard' && !_dashLoaded) {
-    document.getElementById('wootDashFrame').src = getWCCUrl() + '/woot';
-    _dashLoaded = true;
-  }
 }
-
-// Auto-load dashboard on page load
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('wootDashFrame').src = getWCCUrl() + '/woot';
-  _dashLoaded = true;
-});
 
 // Init drop zones
 ['jewelry', 'toys'].forEach(tabId => {

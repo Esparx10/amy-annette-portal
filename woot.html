@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Woot</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f0; color: #2a2a2a; min-height: 100vh; }
+
+    header {
+      background: linear-gradient(135deg, #CC5200, #FF6600);
+      color: white; padding: 16px 40px;
+      display: flex; align-items: center; gap: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 22px; font-weight: 300; letter-spacing: 2px; }
+    header span { font-size: 13px; opacity: 0.7; border-left: 1px solid rgba(255,255,255,0.3); padding-left: 16px; }
+    .header-actions { margin-left: auto; display: flex; gap: 8px; }
+    .header-btn {
+      padding: 8px 16px; border: 2px solid rgba(255,255,255,0.4); background: transparent;
+      color: white; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+      letter-spacing: 0.5px;
+    }
+    .header-btn:hover { background: rgba(255,255,255,0.15); }
+    .header-btn.save { border-color: #4caf50; }
+
+    .tab-bar { display: flex; background: #e8ecf0; border-bottom: 2px solid #ccd5de; }
+    .tab-btn {
+      padding: 12px 24px; border: none; background: transparent;
+      font-size: 13px; font-weight: 600; color: #888; cursor: pointer;
+      border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.2s;
+    }
+    .tab-btn:hover { color: #CC5200; }
+    .tab-btn.active { color: #CC5200; border-bottom-color: #FF6600; background: #f5f5f0; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+    .card {
+      background: white; border-radius: 12px; padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px;
+    }
+    .card h2 { font-size: 15px; color: #CC5200; margin-bottom: 14px; font-weight: 600; }
+
+    .form-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+    .form-row label { font-size: 12px; font-weight: 600; color: #555; white-space: nowrap; min-width: 120px; }
+    .form-row input, .form-row select {
+      flex: 1; padding: 8px 12px; border: 2px solid #ddd; border-radius: 8px;
+      font-size: 13px; transition: border 0.2s;
+    }
+    .form-row input:focus, .form-row select:focus { outline: none; border-color: #FF6600; }
+
+    .drop-zone {
+      border: 3px dashed #FFB380; border-radius: 14px; padding: 40px;
+      text-align: center; background: #fffaf5; transition: all 0.3s; cursor: pointer;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #FF6600; background: #fff0e0; }
+    .drop-zone h3 { font-size: 15px; color: #CC5200; margin-bottom: 4px; font-weight: 400; }
+    .drop-zone p { color: #888; font-size: 11px; }
+    .drop-zone .icon { font-size: 36px; margin-bottom: 8px; }
+    .file-input-hidden { display: none; }
+
+    .status-banner {
+      padding: 12px 18px; border-radius: 8px; margin-bottom: 14px;
+      font-size: 13px; display: none;
+    }
+    .status-banner.success { display: block; background: #d4edda; border: 1px solid #a3d9b1; color: #155724; }
+    .status-banner.error { display: block; background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+    .status-banner.info { display: block; background: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th {
+      background: #CC5200; color: white; padding: 8px 10px;
+      text-align: left; font-weight: 600; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    tbody td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+    tbody tr:hover { background: #fff8f2; }
+    .amount { font-weight: 600; color: #CC5200; }
+    .total-row { background: #fff0e0; font-weight: 700; }
+    .total-row td { border-top: 2px solid #CC5200; padding: 10px; }
+    .unmatched { background: #fff3cd; }
+    .margin-pos { color: #28a745; font-weight: 600; }
+    .margin-neg { color: #dc3545; font-weight: 600; }
+
+    .btn {
+      padding: 10px 20px; border: none; border-radius: 8px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: #FF6600; color: white; }
+    .btn-primary:hover { background: #CC5200; }
+    .btn-secondary { background: #e8ecf0; color: #555; }
+    .btn-secondary:hover { background: #d8dee6; }
+    .btn-sm { padding: 6px 12px; font-size: 11px; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-group { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .quick-date-btn {
+      padding: 5px 12px; border: 1px solid #FFB380; border-radius: 16px; font-size: 11px;
+      font-weight: 600; cursor: pointer; background: #fff8f2; color: #CC5200; transition: all 0.2s;
+    }
+    .quick-date-btn:hover { background: #FF6600; color: white; border-color: #FF6600; }
+
+    .master-table { margin-top: 12px; }
+    .master-table input, .master-table select {
+      border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px; font-size: 12px; width: 100%;
+    }
+    .master-table input:focus { outline: none; border-color: #FF6600; }
+    .master-table .del-btn {
+      background: none; border: none; color: #dc3545; font-size: 16px; cursor: pointer; padding: 2px 6px;
+    }
+    .add-row-btn {
+      margin-top: 10px; padding: 8px 16px; border: 2px dashed #bbb; background: transparent;
+      border-radius: 8px; color: #666; font-size: 12px; cursor: pointer; width: 100%;
+    }
+    .add-row-btn:hover { border-color: #FF6600; color: #CC5200; }
+
+    .invoice-preview {
+      background: white; border: 1px solid #ddd; padding: 30px; font-family: Arial, sans-serif;
+      font-size: 12px; max-width: 800px; margin: 0 auto;
+    }
+    .inv-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+    .inv-company { font-size: 14px; font-weight: bold; }
+    .inv-title { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 16px; color: #CC5200; }
+    .inv-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 16px; font-size: 11px; }
+    .inv-meta-label { font-weight: bold; color: #555; }
+
+    .toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: #333; color: white; padding: 12px 24px; border-radius: 8px;
+      font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    .drop-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    .drop-note { font-size: 11px; color: #777; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>WOOT</h1>
+  <span>The Daas Group</span>
+  <div class="header-actions">
+    <button class="header-btn save" onclick="saveAllData()">Save Data</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('generate')">Generate Invoice</button>
+  <button class="tab-btn" onclick="switchTab('master')">Master Sheet</button>
+  <button class="tab-btn" onclick="switchTab('dashboard')">Dashboard</button>
+</div>
+
+<!-- GENERATE TAB -->
+<div id="tab-generate" class="tab-content active">
+<div class="container">
+  <div class="card">
+    <h2>Invoice Settings</h2>
+    <div class="form-row">
+      <label>Deal Name:</label>
+      <input type="text" id="saleName" placeholder="e.g. Woot Summer Jewelry Blowout">
+    </div>
+    <div class="form-row">
+      <label>Deal Type:</label>
+      <select id="dealType">
+        <option value="Daily Deal">Daily Deal</option>
+        <option value="Woot-Off">Woot-Off</option>
+        <option value="Event">Event</option>
+        <option value="Clearance">Clearance</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Deal Start Date:</label>
+      <input type="date" id="dealStartDate">
+    </div>
+    <div class="form-row">
+      <label>Deal End Date:</label>
+      <input type="date" id="dealEndDate">
+    </div>
+    <div class="form-row">
+      <label>Invoice Date:</label>
+      <input type="date" id="invoiceDate">
+    </div>
+    <div class="form-row">
+      <label>Invoice No.:</label>
+      <input type="text" id="invoiceNo" placeholder="Auto from deal name">
+    </div>
+    <div class="form-row">
+      <label>Customer ID:</label>
+      <input type="text" id="customerId" value="WOOT-01">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Drop Woot Deal Report</h2>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📥</div>
+      <h3>Drop your Woot sales CSV or XLSX here</h3>
+      <p>The file should contain SKU/Model # and Quantity sold. Click to browse or drag & drop.</p>
+      <p style="margin-top:4px;font-size:10px;color:#999;">Accepts .csv, .xlsx, .xls — auto-detects SKU and Qty columns</p>
+    </div>
+    <input type="file" class="file-input-hidden" id="fileInput" accept=".xlsx,.xls,.csv" multiple onchange="handleFiles(this.files)">
+    <div id="loadedFiles" style="font-size:12px;color:#555;margin-top:8px;"></div>
+    <div class="drop-actions">
+      <button class="btn btn-sm btn-secondary" onclick="loadLatestWootDrop()" id="loadLatestBtn">Load latest email file</button>
+      <button class="btn btn-sm btn-secondary" onclick="clearLoadedFiles()" id="clearFilesBtn">Clear & Start Over</button>
+      <span class="drop-note">Auto files are read from the Woot invoice drop folder.</span>
+    </div>
+  </div>
+
+  <div id="statusBanner" class="status-banner"></div>
+
+  <div id="previewCard" class="card" style="display:none;">
+    <h2>Invoice Preview</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Brand</th>
+          <th>Product ID</th>
+          <th>Our SKU</th>
+          <th>QTY</th>
+          <th>Regular Price</th>
+          <th>Woot Price</th>
+          <th>Amount</th>
+          <th>Margin</th>
+        </tr>
+      </thead>
+      <tbody id="previewBody"></tbody>
+    </table>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="downloadInvoice()">Download Invoice (.xlsx)</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MASTER SHEET TAB -->
+<div id="tab-master" class="tab-content">
+<div class="container">
+  <div class="card">
+    <h2>Master Sheet - SKU & Pricing</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">Edit products below or drop an updated master sheet XLSX to replace all data.</p>
+    <div class="drop-zone" id="masterDropZone" onclick="document.getElementById('masterFileInput').click()" style="padding:20px;margin-bottom:14px;">
+      <div class="icon">📥</div>
+      <h3 style="font-size:14px;">Drop your Woot product CSV or XLSX here</h3>
+      <p>Columns: Model # (Product ID) | SKU | Woot Price</p>
+      <p style="margin-top:4px;">Click here to browse or drag & drop your file</p>
+    </div>
+    <input type="file" class="file-input-hidden" id="masterFileInput" accept=".xlsx,.csv" onchange="importMaster(this.files[0])">
+
+    <div id="masterStatus" class="status-banner"></div>
+
+    <table class="master-table">
+      <thead>
+        <tr>
+          <th>Product ID</th>
+          <th>Our SKU</th>
+          <th>Woot Price</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody id="masterBody"></tbody>
+    </table>
+    <button class="add-row-btn" onclick="addMasterRow()">+ Add Product</button>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveAllData()">Save All Changes</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- DASHBOARD TAB -->
+<div id="tab-dashboard" class="tab-content">
+<div class="container">
+  <div class="card">
+    <h2>Deals</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">Click a deal name to filter Sales Metrics below.</p>
+    <div id="eventSummary"></div>
+  </div>
+
+  <div class="card">
+    <h2>Sales Metrics</h2>
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+      <input type="text" id="dashSearch" placeholder="Search by SKU, Product ID, Brand, or Deal..." oninput="renderDashboard()"
+        style="flex:1;min-width:200px;padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+      <input type="date" id="dashDateFrom" onchange="renderDashboard()" title="From date"
+        style="padding:8px 10px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+      <span style="color:#888;font-size:12px;">to</span>
+      <input type="date" id="dashDateTo" onchange="renderDashboard()" title="To date"
+        style="padding:8px 10px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+      <select id="dashEvent" onchange="renderDashboard()" style="padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+        <option value="">All Deals</option>
+      </select>
+      <select id="dashDealType" onchange="renderDashboard()" style="padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+        <option value="">All Deal Types</option>
+        <option value="Daily Deal">Daily Deal</option>
+        <option value="Woot-Off">Woot-Off</option>
+        <option value="Event">Event</option>
+        <option value="Clearance">Clearance</option>
+      </select>
+      <select id="dashSort" onchange="renderDashboard()" style="padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+        <option value="qty-desc">QTY: High to Low</option>
+        <option value="qty-asc">QTY: Low to High</option>
+        <option value="rev-desc">Revenue: High to Low</option>
+        <option value="rev-asc">Revenue: Low to High</option>
+        <option value="sku-asc">SKU: A-Z</option>
+      </select>
+      <button onclick="clearDashFilters()" style="padding:8px 12px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#f5f5f5;">Clear</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button onclick="setDateRange(7)" class="quick-date-btn">Last 7 Days</button>
+      <button onclick="setDateRange(14)" class="quick-date-btn">Last 14 Days</button>
+      <button onclick="setDateRange(30)" class="quick-date-btn">Last 30 Days</button>
+      <button onclick="setDateRangeMonth('last')" class="quick-date-btn">Last Month</button>
+      <button onclick="setDateRangeMonth('this')" class="quick-date-btn">This Month</button>
+      <button onclick="setDateRange(0)" class="quick-date-btn">All Time</button>
+    </div>
+    <div id="dashFilterTag" style="margin-bottom:10px;"></div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div style="background:#fff0e0;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Deals</div>
+        <div id="dashTotalOrders" style="font-size:28px;font-weight:700;color:#CC5200;">0</div>
+      </div>
+      <div style="background:#fff0e0;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Total Units</div>
+        <div id="dashTotalUnits" style="font-size:28px;font-weight:700;color:#CC5200;">0</div>
+      </div>
+      <div style="background:#fff0e0;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Total Revenue</div>
+        <div id="dashTotalRev" style="font-size:28px;font-weight:700;color:#CC5200;">$0</div>
+      </div>
+      <div style="background:#fff0e0;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Unique SKUs</div>
+        <div id="dashUniqueSKUs" style="font-size:28px;font-weight:700;color:#CC5200;">0</div>
+      </div>
+    </div>
+
+    <div id="dashChart" style="margin-bottom:20px;"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Our SKU</th>
+          <th>Product ID</th>
+          <th>Brand</th>
+          <th>QTY Sold</th>
+          <th>Unit Price</th>
+          <th>Revenue</th>
+          <th>% of Total</th>
+        </tr>
+      </thead>
+      <tbody id="dashBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Invoice History</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">Click a date to expand SKU-level details.</p>
+    <div id="invoiceHistoryList"></div>
+  </div>
+</div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script id="logoData" type="text/plain">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</script>
+
+<script>
+const WCC_URL_KEY = 'wcc_url';
+const WCC_DEFAULT_URL = 'http://localhost:4000';
+function getWCCUrl() { return localStorage.getItem(WCC_URL_KEY) || localStorage.getItem('wcc-url') || WCC_DEFAULT_URL; }
+function api(path) { return getWCCUrl() + path; }
+
+const DEFAULT_MASTER = [];
+
+let masterData = [];
+
+async function loadData() {
+  try {
+    const res = await fetch(api('/api/woot/master')).then(r => r.json());
+    if (res.master && res.master.length) {
+      masterData = res.master;
+    } else {
+      masterData = JSON.parse(JSON.stringify(DEFAULT_MASTER));
+    }
+  } catch(e) {
+    console.log('Load error, using defaults:', e.message);
+    masterData = JSON.parse(JSON.stringify(DEFAULT_MASTER));
+  }
+
+  try {
+    const res = await fetch(api('/api/woot/settings')).then(r => r.json());
+    const settings = res.settings || {};
+    if (settings.saleName) document.getElementById('saleName').value = settings.saleName;
+    if (settings.customerId) document.getElementById('customerId').value = settings.customerId;
+    if (settings.dealType) document.getElementById('dealType').value = settings.dealType;
+    if (settings.dealStartDate) document.getElementById('dealStartDate').value = settings.dealStartDate;
+    if (settings.dealEndDate) document.getElementById('dealEndDate').value = settings.dealEndDate;
+  } catch(e) {}
+}
+
+const _rowSaveTimers = {};
+function saveRow(idx) {
+  clearTimeout(_rowSaveTimers[idx]);
+  _rowSaveTimers[idx] = setTimeout(async () => {
+    syncMasterFromTable();
+    const r = masterData[idx];
+    if (!r || !r.productId) return;
+    try {
+      await fetch(api('/api/woot/master/' + encodeURIComponent(r.productId)), {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: r.brand, sku: r.sku, price: r.price, wootPrice: r.wootPrice, dealType: r.dealType })
+      });
+    } catch(e) { console.error('Row save failed:', e); }
+  }, 800);
+}
+
+let saveDebounceTimer = null;
+async function saveAllData(silent) {
+  syncMasterFromTable();
+
+  if (silent) {
+    const active = document.activeElement;
+    if (active && active.dataset && active.dataset.idx !== undefined) {
+      saveRow(parseInt(active.dataset.idx));
+    }
+    return;
+  }
+
+  try {
+    await fetch(api('/api/woot/master'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ master: masterData })
+    });
+    await fetch(api('/api/woot/settings'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: {
+        saleName: document.getElementById('saleName').value,
+        customerId: document.getElementById('customerId').value,
+        dealType: document.getElementById('dealType').value,
+        dealStartDate: document.getElementById('dealStartDate').value,
+        dealEndDate: document.getElementById('dealEndDate').value
+      }})
+    });
+    if (!silent) showToast('All data saved to database!');
+  } catch(e) {
+    showToast('Save failed: ' + e.message);
+  }
+}
+
+let _settingsTimer = null;
+function saveSettings() {
+  clearTimeout(_settingsTimer);
+  _settingsTimer = setTimeout(async () => {
+    try {
+      await fetch(api('/api/woot/settings'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: {
+          saleName: document.getElementById('saleName').value,
+          customerId: document.getElementById('customerId').value,
+          dealType: document.getElementById('dealType').value,
+          dealStartDate: document.getElementById('dealStartDate').value,
+          dealEndDate: document.getElementById('dealEndDate').value
+        }})
+      });
+    } catch(e) {}
+  }, 1500);
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target.closest('.master-table')) saveAllData(true);
+  else saveSettings();
+});
+document.addEventListener('change', (e) => {
+  if (e.target.closest('.master-table')) saveAllData(true);
+  else saveSettings();
+});
+
+function getMasterLookup() {
+  const lookup = {};
+  masterData.forEach(r => {
+    // Match by full product ID (IGT-DAAS-DAB5015)
+    if (r.productId) lookup[r.productId.trim()] = r;
+    // Also match by SKU (DAB5015)
+    if (r.sku) lookup[r.sku.trim()] = r;
+    // Also match by uppercase variants
+    if (r.productId) lookup[r.productId.trim().toUpperCase()] = r;
+    if (r.sku) lookup[r.sku.trim().toUpperCase()] = r;
+  });
+  return lookup;
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'master') renderMasterTable();
+}
+
+function renderMasterTable() {
+  const tbody = document.getElementById('masterBody');
+  tbody.innerHTML = masterData.map((r, i) => `<tr>
+    <td><input value="${esc(r.productId)}" data-idx="${i}" data-field="productId"></td>
+    <td><input value="${esc(r.sku)}" data-idx="${i}" data-field="sku"></td>
+    <td><input type="number" step="0.01" value="${r.wootPrice || 0}" data-idx="${i}" data-field="wootPrice" style="width:80px;"></td>
+    <td><button class="del-btn" onclick="deleteMasterRow(${i})">&times;</button></td>
+  </tr>`).join('');
+}
+
+function syncMasterFromTable() {
+  document.querySelectorAll('.master-table input[data-idx], .master-table select[data-idx]').forEach(inp => {
+    const idx = parseInt(inp.dataset.idx);
+    const field = inp.dataset.field;
+    if (idx < masterData.length) {
+      if (field === 'price' || field === 'wootPrice') {
+        masterData[idx][field] = parseFloat(inp.value) || 0;
+      } else {
+        masterData[idx][field] = inp.value;
+      }
+    }
+  });
+}
+
+function addMasterRow() {
+  syncMasterFromTable();
+  masterData.push({ brand: 'Amy & Annette', productId: '', sku: '', price: 0, wootPrice: 0, dealType: '' });
+  renderMasterTable();
+  const inputs = document.querySelectorAll('.master-table input[data-field="productId"]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+async function deleteMasterRow(idx) {
+  if (!confirm('Delete this product from master sheet?')) return;
+  syncMasterFromTable();
+  const removed = masterData.splice(idx, 1)[0];
+  renderMasterTable();
+  if (removed && removed.productId) {
+    try { await fetch(api('/api/woot/master/' + encodeURIComponent(removed.productId)), { method: 'DELETE' }); }
+    catch(e) { console.error('Delete failed:', e); }
+  }
+}
+
+function importMaster(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length) { throw new Error('File is empty'); }
+
+      // Auto-detect columns by header name
+      const keys = Object.keys(rows[0]);
+      const findCol = (...patterns) => keys.find(k => patterns.some(p => k.toLowerCase().trim().includes(p)));
+
+      const modelCol = findCol('model', 'product id', 'productid', 'item');
+      const skuCol = findCol('sku', 'our sku');
+      const priceCol = findCol('will call', 'woot price', 'cost', 'unit cost', 'price');
+      const brandCol = findCol('brand');
+
+      if (!modelCol && !skuCol) {
+        // Fallback: assume first column is Model #, second is price
+        const fallbackKeys = keys;
+        const newData = [];
+        for (const row of rows) {
+          const model = String(row[fallbackKeys[0]] || '').trim();
+          if (!model) continue;
+          const sku = model.replace(/^IGT-DAAS-/i, '').trim();
+          const wootPrice = parseFloat(row[fallbackKeys[1]]) || 0;
+          newData.push({ brand: 'Amy & Annette', productId: model, sku, price: 0, wootPrice, dealType: '' });
+        }
+        if (newData.length) {
+          masterData = newData;
+          renderMasterTable();
+          const ms = document.getElementById('masterStatus');
+          ms.textContent = 'Imported ' + newData.length + ' products (auto-detected columns: ' + fallbackKeys[0] + ', ' + fallbackKeys[1] + ')';
+          ms.className = 'status-banner success';
+        }
+        return;
+      }
+
+      const newData = [];
+      for (const row of rows) {
+        const rawModel = modelCol ? String(row[modelCol] || '').trim() : '';
+        const rawSku = skuCol ? String(row[skuCol] || '').trim() : '';
+
+        // Product ID = full model number (e.g. IGT-DAAS-DAB5015)
+        const productId = rawModel || rawSku;
+        if (!productId) continue;
+
+        // SKU = strip IGT-DAAS- prefix (e.g. DAB5015)
+        const sku = rawSku || productId.replace(/^IGT-DAAS-/i, '').trim();
+
+        const wootPrice = priceCol ? (parseFloat(row[priceCol]) || 0) : 0;
+        const brand = brandCol ? String(row[brandCol] || '').trim() : 'Amy & Annette';
+
+        newData.push({ brand, productId, sku, price: 0, wootPrice, dealType: '' });
+      }
+
+      if (newData.length > 0) {
+        masterData = newData;
+        renderMasterTable();
+        const ms = document.getElementById('masterStatus');
+        ms.textContent = 'Imported ' + newData.length + ' products. Detected columns: ' +
+          (modelCol || 'col1') + ' → Product ID, ' +
+          (priceCol || 'col2') + ' → Woot Price' +
+          (skuCol ? ', ' + skuCol + ' → SKU' : ' (SKU auto-extracted from Model #)');
+        ms.className = 'status-banner success';
+      } else {
+        throw new Error('No valid rows found in file');
+      }
+    } catch (err) {
+      const ms = document.getElementById('masterStatus');
+      ms.textContent = 'Error reading file: ' + err.message;
+      ms.className = 'status-banner error';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+const masterDZ = document.getElementById('masterDropZone');
+masterDZ.addEventListener('dragover', e => { e.preventDefault(); masterDZ.classList.add('dragover'); });
+masterDZ.addEventListener('dragleave', () => masterDZ.classList.remove('dragover'));
+masterDZ.addEventListener('drop', e => {
+  e.preventDefault(); masterDZ.classList.remove('dragover');
+  if (e.dataTransfer.files.length) importMaster(e.dataTransfer.files[0]);
+});
+
+let invoiceData = [];
+let accumulatedAgg = {};
+let loadedFileNames = [];
+
+document.getElementById('invoiceDate').value = new Date().toISOString().slice(0, 10);
+document.getElementById('dealStartDate').value = new Date().toISOString().slice(0, 10);
+document.getElementById('dealEndDate').value = new Date().toISOString().slice(0, 10);
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+});
+
+function clearLoadedFiles() {
+  accumulatedAgg = {};
+  loadedFileNames = [];
+  invoiceData = [];
+  document.getElementById('loadedFiles').innerHTML = '';
+  document.getElementById('previewCard').style.display = 'none';
+  document.getElementById('statusBanner').className = 'status-banner';
+  showToast('Cleared - ready for new files');
+}
+
+function showStatus(msg, type) {
+  const b = document.getElementById('statusBanner');
+  b.textContent = msg;
+  b.className = 'status-banner ' + type;
+}
+
+function handleFiles(files) {
+  if (!files || !files.length) return;
+
+  const saleInput = document.getElementById('saleName');
+  if (!saleInput.value || loadedFileNames.length === 0) {
+    const wootMatch = files[0].name.match(/woot\s+([^-]+)/i);
+    if (wootMatch) saleInput.value = 'Woot ' + wootMatch[1].trim();
+  }
+
+  const lookup = getMasterLookup();
+  const masterKeys = new Set(Object.keys(lookup));
+  let filesProcessed = 0;
+
+  Array.from(files).forEach(file => {
+    loadedFileNames.push(file.name);
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const agg = parseOrderFile(e.target.result, lookup, masterKeys);
+        if (agg) {
+          for (const [sku, qty] of Object.entries(agg)) {
+            if (!accumulatedAgg[sku]) accumulatedAgg[sku] = 0;
+            accumulatedAgg[sku] += qty;
+          }
+        }
+      } catch (err) {
+        showStatus('Error reading ' + file.name + ': ' + err.message, 'error');
+      }
+      filesProcessed++;
+      if (filesProcessed === files.length) {
+        document.getElementById('loadedFiles').innerHTML = '<strong>Loaded files:</strong> ' + loadedFileNames.map(n => esc(n)).join(', ');
+        buildInvoiceFromAgg(accumulatedAgg, lookup, 0, loadedFileNames);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function loadLatestWootDrop() {
+  const btn = document.getElementById('loadLatestBtn');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  try {
+    const metaRes = await fetch(api('/api/woot/drop/latest'));
+    const meta = await metaRes.json().catch(() => ({}));
+    if (!metaRes.ok) throw new Error(meta.error || 'No Woot email file found yet.');
+
+    const fileRes = await fetch(api('/api/woot/drop/latest/file?t=' + Date.now()));
+    if (!fileRes.ok) throw new Error('Could not read latest Woot file.');
+    const buffer = await fileRes.arrayBuffer();
+    const fileName = meta.file?.name || 'latest Woot email file';
+
+    clearLoadedFiles();
+    const saleInput = document.getElementById('saleName');
+    if (!saleInput.value) {
+      const cleanName = fileName.replace(/\.(xlsx|xls|csv)$/i, '').replace(/[_-]+/g, ' ').trim();
+      saleInput.value = cleanName || 'Woot Deal';
+    }
+
+    const lookup = getMasterLookup();
+    const masterKeys = new Set(Object.keys(lookup));
+    const agg = parseOrderFile(buffer, lookup, masterKeys, { requireQty: true });
+    if (!agg) throw new Error('Could not find a SKU column in ' + fileName);
+
+    loadedFileNames.push(fileName);
+    accumulatedAgg = agg;
+    document.getElementById('loadedFiles').innerHTML = '<strong>Loaded file:</strong> ' + esc(fileName);
+    buildInvoiceFromAgg(accumulatedAgg, lookup, 0, loadedFileNames);
+  } catch (err) {
+    showStatus(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Load latest email file';
+  }
+}
+
+function parseOrderFile(arrayBuffer, lookup, masterKeys, options = {}) {
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+  let headerRow = -1, skuCol = -1, qtyCol = -1;
+
+  for (let r = 0; r < Math.min(5, rows.length); r++) {
+    const row = rows[r];
+    if (!row) continue;
+    for (let c = 0; c < row.length; c++) {
+      const v = String(row[c] || '').toLowerCase().trim();
+      if (v === 'line_item_sku' || v === 'sku' || v === 'product_id' || v === 'model' || v === 'model #' || v === 'model#' || v === 'item' || v === 'item_sku' || v === 'asin') { skuCol = c; headerRow = r; }
+      if (v === 'line_item_quantity' || v === 'quantity' || v === 'qty' || v === 'units' || v === 'units_sold' || v === 'sold' || v === 'count') { qtyCol = c; }
+    }
+  }
+
+  if (skuCol === -1) {
+    for (let r = 0; r < Math.min(20, rows.length); r++) {
+      const row = rows[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        const v = String(row[c] || '').trim();
+        if (masterKeys.has(v)) { skuCol = c; if (headerRow === -1) headerRow = r - 1; break; }
+      }
+      if (skuCol !== -1) break;
+    }
+  }
+
+  if (qtyCol === -1 && skuCol !== -1) {
+    for (let c = 0; c < Math.min(30, (rows[Math.max(0,headerRow)+1]||[]).length); c++) {
+      if (c === skuCol) continue;
+      const hv = String((rows[Math.max(0,headerRow)] || [])[c] || '').toLowerCase();
+      if (hv.includes('quant') || hv === 'qty') { qtyCol = c; break; }
+    }
+    if (qtyCol === -1 && options.requireQty) {
+      throw new Error('No Quantity column found. Generate Invoice needs a sales/order file, not a pricing/master sheet.');
+    }
+    if (qtyCol === -1) qtyCol = 13;
+  }
+
+  if (skuCol === -1) return null;
+
+  const startRow = Math.max(0, headerRow) + 1;
+  const agg = {};
+  for (let r = startRow; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row) continue;
+    let sku = String(row[skuCol] || '').trim();
+    if (!sku || sku.toLowerCase() === 'sku' || sku.toLowerCase() === 'line_item_sku' || sku.toLowerCase() === 'model #') continue;
+
+    // Try to match: raw value first, then strip IGT-DAAS- prefix
+    const stripped = sku.replace(/^IGT-DAAS-/i, '').trim();
+    // Use whichever matches the master lookup
+    const matchKey = lookup[sku] ? sku : lookup[stripped] ? stripped : lookup[sku.toUpperCase()] ? sku.toUpperCase() : lookup[stripped.toUpperCase()] ? stripped.toUpperCase() : stripped;
+
+    const qty = parseInt(row[qtyCol]) || 1;
+    if (!agg[matchKey]) agg[matchKey] = 0;
+    agg[matchKey] += qty;
+  }
+  return agg;
+}
+
+function buildInvoiceFromAgg(agg, lookup, totalOrders, fileNames) {
+  invoiceData = [];
+  let unmatchedCount = 0;
+
+  for (const [productId, qty] of Object.entries(agg)) {
+    const master = lookup[productId];
+    if (master) {
+      const wootPrice = master.wootPrice || master.price;
+      const margin = master.price > 0 ? ((master.price - wootPrice) / master.price * 100) : 0;
+      invoiceData.push({
+        brand: master.brand, productId, sku: master.sku,
+        qty, unitPrice: master.price, wootPrice: wootPrice,
+        amount: qty * wootPrice, margin: margin, matched: true
+      });
+    } else {
+      unmatchedCount++;
+      invoiceData.push({
+        brand: '???', productId, sku: '???',
+        qty, unitPrice: 0, wootPrice: 0, amount: 0, margin: 0, matched: false
+      });
+    }
+  }
+
+  invoiceData.sort((a, b) => a.productId.localeCompare(b.productId));
+  renderPreview();
+
+  const totalQty = invoiceData.reduce((s, r) => s + r.qty, 0);
+  const totalAmt = invoiceData.reduce((s, r) => s + r.amount, 0);
+  let msg = fileNames.length + ' file(s) combined: ' + invoiceData.length + ' line items. Total QTY: ' + totalQty + ', Total: $' + totalAmt.toFixed(2);
+  if (fileNames.length > 1) msg += ' | Files: ' + fileNames.join(', ');
+  if (unmatchedCount > 0) msg += ' | ' + unmatchedCount + ' unmatched SKUs (yellow)';
+  showStatus(msg, unmatchedCount > 0 ? 'error' : 'success');
+}
+
+function renderPreview() {
+  const tbody = document.getElementById('previewBody');
+  let totalQty = 0, totalAmt = 0;
+
+  let html = invoiceData.map(r => {
+    totalQty += r.qty;
+    totalAmt += r.amount;
+    const marginClass = r.margin > 0 ? 'margin-pos' : (r.margin < 0 ? 'margin-neg' : '');
+    return `<tr class="${r.matched ? '' : 'unmatched'}">
+      <td>${esc(r.brand)}</td>
+      <td>${esc(r.productId)}</td>
+      <td>${esc(r.sku)}</td>
+      <td>${r.qty}</td>
+      <td>$${r.unitPrice.toFixed(2)}</td>
+      <td>$${r.wootPrice.toFixed(2)}</td>
+      <td class="amount">$${r.amount.toFixed(2)}</td>
+      <td class="${marginClass}">${r.margin.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+
+  html += `<tr class="total-row">
+    <td colspan="3">Total</td>
+    <td>${totalQty}</td>
+    <td></td>
+    <td></td>
+    <td class="amount">$${totalAmt.toFixed(2)}</td>
+    <td></td>
+  </tr>`;
+
+  tbody.innerHTML = html;
+  document.getElementById('previewCard').style.display = 'block';
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+async function downloadInvoice() {
+  const saleName = document.getElementById('saleName').value || 'Invoice';
+  const dateStr = document.getElementById('invoiceDate').value;
+  const dateObj = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  const formattedDate = (dateObj.getMonth() + 1) + '/' + dateObj.getDate() + '/' + dateObj.getFullYear();
+  const customerId = document.getElementById('customerId').value || 'WOOT-01';
+  const dealType = document.getElementById('dealType').value;
+  const dealStartDate = document.getElementById('dealStartDate').value;
+  const dealEndDate = document.getElementById('dealEndDate').value;
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Sheet1');
+
+  ws.getColumn('A').width = 45;
+  ws.getColumn('B').width = 15;
+  ws.getColumn('C').width = 13;
+  ws.getColumn('D').width = 10;
+  ws.getColumn('E').width = 14;
+  ws.getColumn('F').width = 14;
+  ws.getColumn('G').width = 14;
+  ws.getColumn('H').width = 12;
+
+  const orangeFontBold = { font: { size: 11, color: { argb: 'FFCC5200' }, bold: true } };
+  const normal = { font: { size: 11 } };
+  const lightOrangeFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF0E0' } };
+
+  ws.getRow(1).height = 89;
+  const logoB64 = document.getElementById('logoData').textContent.trim();
+  const logoId = wb.addImage({ base64: logoB64, extension: 'jpeg' });
+  ws.addImage(logoId, {
+    tl: { col: 0, row: 0.1 },
+    ext: { width: 200, height: 80 }
+  });
+
+  const titleCell = ws.getCell('E1');
+  titleCell.value = 'BILLING INVOICE';
+  titleCell.font = { size: 18, bold: true, color: { argb: 'FFCC5200' } };
+
+  ws.getCell('A2').value = 'The Daas Group'; ws.getCell('A2').font = { size: 12, bold: true };
+  ws.getCell('E2').value = 'INVOICE NO.'; Object.assign(ws.getCell('E2'), orangeFontBold);
+  ws.getCell('H2').value = 'DATE'; Object.assign(ws.getCell('H2'), orangeFontBold);
+
+  ws.getCell('A3').value = '2375 Mcdonald Ave'; ws.getCell('A3').font = normal.font;
+  ws.getCell('E3').value = saleName; ws.getCell('E3').font = normal.font;
+  ws.getCell('H3').value = formattedDate; ws.getCell('H3').font = normal.font;
+
+  ws.getCell('A4').value = 'Brooklyn , NY 11223'; ws.getCell('A4').font = normal.font;
+  ws.getCell('E4').value = 'CUSTOMER ID'; Object.assign(ws.getCell('E4'), orangeFontBold);
+  ws.getCell('H4').value = 'TERMS'; Object.assign(ws.getCell('H4'), orangeFontBold);
+
+  ws.getCell('A5').value = '(212) 271-0256 '; ws.getCell('A5').font = normal.font;
+  ws.getCell('E5').value = customerId; ws.getCell('E5').font = normal.font;
+  ws.getCell('H5').value = 'Net 30 Days'; ws.getCell('H5').font = normal.font;
+
+  ws.getCell('A6').value = 'Email Address: marc@thedaasgroup.com'; ws.getCell('A6').font = normal.font;
+  ws.getCell('E6').value = 'Deal: ' + dealType; ws.getCell('E6').font = normal.font;
+
+  ws.getCell('E7').value = 'Deal Period: ' + dealStartDate + ' to ' + dealEndDate; ws.getCell('E7').font = normal.font;
+
+  ws.getCell('A9').value = 'BILL TO:'; Object.assign(ws.getCell('A9'), orangeFontBold);
+  ws.getCell('E9').value = 'Remit payment TO:'; Object.assign(ws.getCell('E9'), orangeFontBold);
+
+  ws.getCell('A10').value = 'Woot / Amazon'; ws.getCell('E10').value = 'TheDaasGroup';
+  ws.getCell('A11').value = ''; ws.getCell('E11').value = 'Bank: Chase';
+  ws.getCell('A12').value = ''; ws.getCell('E12').value = 'Account : 203779779';
+  ws.getCell('A13').value = 'www.woot.com'; ws.getCell('E13').value = 'Routing : 021000021';
+  for (let r = 10; r <= 15; r++) {
+    ws.getCell('A'+r).font = normal.font;
+    if (ws.getCell('E'+r).value) ws.getCell('E'+r).font = normal.font;
+  }
+
+  const headers = [
+    { col: 'A', val: 'Brand' }, { col: 'B', val: 'Product ID' }, { col: 'C', val: 'SKU' },
+    { col: 'D', val: 'QTY' }, { col: 'E', val: 'Regular Price' }, { col: 'F', val: 'Woot Price' },
+    { col: 'G', val: 'AMOUNT' }, { col: 'H', val: 'Margin %' }
+  ];
+  headers.forEach(h => {
+    const cell = ws.getCell(h.col + '17');
+    cell.value = h.val;
+    cell.font = { size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCC5200' } };
+  });
+
+  const dataStartRow = 18;
+  invoiceData.forEach((r, i) => {
+    const n = dataStartRow + i;
+    ws.getCell('A'+n).value = r.brand;
+    ws.getCell('B'+n).value = r.productId;
+    ws.getCell('C'+n).value = r.sku;
+    ws.getCell('D'+n).value = r.qty;
+    ws.getCell('E'+n).value = r.unitPrice;
+    ws.getCell('F'+n).value = r.wootPrice;
+    ws.getCell('G'+n).value = { formula: 'D'+n+'*F'+n, result: r.qty * r.wootPrice };
+    ws.getCell('H'+n).value = r.margin > 0 ? r.margin.toFixed(1) + '%' : '0%';
+    ['A','B','C','D','E','F','G','H'].forEach(c => { ws.getCell(c+n).font = normal.font; });
+  });
+
+  const lastDataRow = dataStartRow + invoiceData.length - 1;
+  const totalRowNum = lastDataRow + 2;
+  const totalQty = invoiceData.reduce((s, r) => s + r.qty, 0);
+  const totalAmt = invoiceData.reduce((s, r) => s + r.amount, 0);
+
+  ws.getCell('A'+totalRowNum).value = 'Total';
+  ws.getCell('D'+totalRowNum).value = { formula: 'SUM(D'+dataStartRow+':D'+lastDataRow+')', result: totalQty };
+  ws.getCell('G'+totalRowNum).value = { formula: 'SUM(G'+dataStartRow+':G'+lastDataRow+')', result: totalAmt };
+  ['A','B','C','D','E','F','G','H'].forEach(c => {
+    const cell = ws.getCell(c+totalRowNum);
+    cell.font = { size: 11, bold: true };
+    cell.fill = lightOrangeFill;
+  });
+
+  ws['!ref'] = 'A1:H' + totalRowNum;
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  saveAs(blob, 'Invoice - ' + saleName + ' - ' + dateStr + '.xlsx');
+
+  await saveInvoiceToHistory(saleName, dateStr, dealType, dealStartDate, dealEndDate, invoiceData);
+  await refreshInvoiceHistory();
+  showToast('Invoice downloaded & saved to dashboard!');
+}
+
+async function saveInvoiceToHistory(saleName, dateStr, dealType, dealStartDate, dealEndDate, data) {
+  const id = Date.now().toString(36);
+  const items = data.map(r => ({
+    brand: r.brand, productId: r.productId, sku: r.sku,
+    qty: r.qty, unitPrice: r.unitPrice, wootPrice: r.wootPrice, amount: r.amount, margin: r.margin
+  }));
+  const payload = {
+    id, saleName, date: dateStr, dealType, dealStartDate, dealEndDate, items,
+    totalQty: data.reduce((s, r) => s + r.qty, 0),
+    totalAmount: data.reduce((s, r) => s + r.amount, 0)
+  };
+  try {
+    await fetch(api('/api/woot/invoices'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) { console.error('Save invoice failed:', e); }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+let _invoiceHistoryCache = [];
+async function refreshInvoiceHistory() {
+  try {
+    const res = await fetch(api('/api/woot/invoices')).then(r => r.json());
+    _invoiceHistoryCache = res.invoices || [];
+  } catch(e) { _invoiceHistoryCache = []; }
+  return _invoiceHistoryCache;
+}
+function getInvoiceHistory() { return _invoiceHistoryCache; }
+
+async function deleteInvoice(id) {
+  const history = getInvoiceHistory();
+  const inv = history.find(h => h.id === id);
+  if (!inv) return;
+  if (!confirm('Delete invoice "' + inv.saleName + '" (' + inv.date + ')?\nThis will remove it from the dashboard. This cannot be undone.')) return;
+  try {
+    await fetch(api('/api/woot/invoices/' + encodeURIComponent(id)), { method: 'DELETE' });
+    await refreshInvoiceHistory();
+    renderDashboard();
+    showToast('Invoice deleted');
+  } catch(e) { showToast('Delete failed: ' + e.message); }
+}
+
+function setDateRange(days) {
+  if (days === 0) {
+    document.getElementById('dashDateFrom').value = '';
+    document.getElementById('dashDateTo').value = '';
+  } else {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    document.getElementById('dashDateFrom').value = from.toISOString().slice(0, 10);
+    document.getElementById('dashDateTo').value = to.toISOString().slice(0, 10);
+  }
+  renderDashboard();
+}
+
+function setDateRangeMonth(which) {
+  const now = new Date();
+  let from, to;
+  if (which === 'last') {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+  document.getElementById('dashDateFrom').value = from.toISOString().slice(0, 10);
+  document.getElementById('dashDateTo').value = to.toISOString().slice(0, 10);
+  renderDashboard();
+}
+
+function toggleInvoiceDetail(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+function clearDashFilters() {
+  document.getElementById('dashSearch').value = '';
+  document.getElementById('dashDateFrom').value = '';
+  document.getElementById('dashDateTo').value = '';
+  document.getElementById('dashEvent').value = '';
+  document.getElementById('dashDealType').value = '';
+  renderDashboard();
+}
+
+function filterByEvent(eventName) {
+  document.getElementById('dashEvent').value = eventName;
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const allHistory = getInvoiceHistory();
+  const search = (document.getElementById('dashSearch')?.value || '').toLowerCase();
+  const sort = document.getElementById('dashSort')?.value || 'qty-desc';
+  const dateFrom = document.getElementById('dashDateFrom')?.value || '';
+  const dateTo = document.getElementById('dashDateTo')?.value || '';
+  const eventFilter = document.getElementById('dashEvent')?.value || '';
+  const dealTypeFilter = document.getElementById('dashDealType')?.value || '';
+
+  const eventSelect = document.getElementById('dashEvent');
+  if (eventSelect) {
+    const allEvents = [...new Set(allHistory.map(inv => inv.saleName))].sort();
+    const prev = eventSelect.value;
+    const opts = '<option value="">All Deals</option>' +
+      allEvents.map(e => '<option value="' + esc(e) + '"' + (e === prev ? ' selected' : '') + '>' + esc(e) + '</option>').join('');
+    eventSelect.innerHTML = opts;
+  }
+
+  function toISO(d) {
+    if (!d) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    const parts = d.split('/');
+    if (parts.length === 3) return parts[2] + '-' + parts[0].padStart(2,'0') + '-' + parts[1].padStart(2,'0');
+    return d;
+  }
+  let history = allHistory;
+  if (dateFrom) history = history.filter(inv => toISO(inv.date) >= dateFrom);
+  if (dateTo) history = history.filter(inv => toISO(inv.date) <= dateTo);
+  if (eventFilter) history = history.filter(inv => inv.saleName === eventFilter);
+  if (dealTypeFilter) history = history.filter(inv => inv.dealType === dealTypeFilter);
+
+  const tagEl = document.getElementById('dashFilterTag');
+  if (tagEl) {
+    const tags = [];
+    if (dateFrom || dateTo) {
+      tags.push('<span style="display:inline-block;background:#fff0e0;color:#CC5200;padding:3px 10px;border-radius:12px;font-size:11px;margin-right:6px;">Date: ' + (dateFrom || '...') + ' to ' + (dateTo || '...') + '</span>');
+    }
+    if (eventFilter) {
+      tags.push('<span style="display:inline-block;background:#fff3cd;color:#856404;padding:3px 10px;border-radius:12px;font-size:11px;margin-right:6px;">Deal: ' + esc(eventFilter) + '</span>');
+    }
+    if (dealTypeFilter) {
+      tags.push('<span style="display:inline-block;background:#e0f0ff;color:#0056b3;padding:3px 10px;border-radius:12px;font-size:11px;margin-right:6px;">Type: ' + esc(dealTypeFilter) + '</span>');
+    }
+    tagEl.innerHTML = tags.join('');
+  }
+
+  const eventSummaryEl = document.getElementById('eventSummary');
+  if (eventSummaryEl) {
+    const eventMap = {};
+    history.forEach(inv => {
+      if (!eventMap[inv.saleName]) {
+        eventMap[inv.saleName] = { count: 0, totalQty: 0, totalRev: 0, dealType: inv.dealType || '' };
+      }
+      eventMap[inv.saleName].count++;
+      eventMap[inv.saleName].totalQty += inv.totalQty;
+      eventMap[inv.saleName].totalRev += inv.totalAmount;
+    });
+    const events = Object.entries(eventMap).sort((a, b) => b[1].totalRev - a[1].totalRev);
+    if (events.length === 0) {
+      eventSummaryEl.innerHTML = '<p style="color:#999;font-size:13px;">No deals found.</p>';
+    } else {
+      eventSummaryEl.innerHTML = '<table style="width:100%;"><thead><tr><th>Deal Name</th><th>Type</th><th>Invoices</th><th>Total QTY</th><th>Total Revenue</th></tr></thead><tbody>' +
+        events.map(([name, d]) => '<tr>' +
+          '<td><a href="#" onclick="filterByEvent(\'' + esc(name.replace(/'/g, "\\'")) + '\');return false;" style="color:#CC5200;text-decoration:none;font-weight:600;">' + esc(name) + '</a></td>' +
+          '<td>' + esc(d.dealType) + '</td>' +
+          '<td>' + d.count + '</td>' +
+          '<td>' + d.totalQty.toLocaleString() + '</td>' +
+          '<td class="amount">$' + d.totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+        '</tr>').join('') + '</tbody></table>';
+    }
+  }
+
+  const histList = document.getElementById('invoiceHistoryList');
+  if (histList) {
+    if (history.length === 0) {
+      histList.innerHTML = '<p style="color:#999;font-size:13px;">No invoices yet. Generate an invoice to see it here.</p>';
+    } else {
+      history.sort((a, b) => {
+        const da = new Date(a.date), db = new Date(b.date);
+        return da - db;
+      });
+      histList.innerHTML = '<table style="width:100%;"><thead><tr><th>Deal</th><th>Date</th><th>SKUs</th><th>Total QTY</th><th>Total Amount</th><th></th></tr></thead><tbody>' +
+        history.map((inv, idx) => {
+          const skuRows = (inv.items || []).sort((a,b) => b.qty - a.qty).map(item =>
+            '<tr style="background:#faf6f0;font-size:11px;">' +
+              '<td style="padding-left:30px;color:#777;">' + esc(item.sku) + '</td>' +
+              '<td style="color:#999;">' + esc(item.productId || '') + '</td>' +
+              '<td style="text-align:center;">' + item.qty + '</td>' +
+              '<td style="text-align:center;">$' + (item.wootPrice || item.unitPrice || 0).toFixed(2) + '</td>' +
+              '<td class="amount">$' + (item.amount || 0).toFixed(2) + '</td>' +
+              '<td></td>' +
+            '</tr>'
+          ).join('');
+          return '<tr style="cursor:pointer;" onclick="toggleInvoiceDetail(\'inv-detail-' + idx + '\')">' +
+            '<td style="color:#CC5200;font-weight:600;">' + esc(inv.dealName || inv.saleName) + ' <span style="font-size:10px;color:#aaa;">&#9660;</span></td>' +
+            '<td>' + esc(inv.date) + '</td>' +
+            '<td>' + inv.items.length + '</td>' +
+            '<td>' + inv.totalQty + '</td>' +
+            '<td class="amount">$' + inv.totalAmount.toFixed(2) + '</td>' +
+            '<td><span style="color:#dc3545;cursor:pointer;font-size:16px;" onclick="event.stopPropagation();deleteInvoice(\'' + inv.id + '\')" title="Delete invoice">&times;</span></td>' +
+          '</tr>' +
+          '<tr id="inv-detail-' + idx + '" style="display:none;"><td colspan="6" style="padding:0;">' +
+            '<table style="width:100%;margin:0;"><thead><tr style="background:#f0ebe0;"><th style="padding-left:30px;">SKU</th><th>Product ID</th><th style="text-align:center;">QTY</th><th style="text-align:center;">Unit Price</th><th>Revenue</th><th></th></tr></thead><tbody>' +
+            skuRows +
+            '</tbody></table></td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+  }
+
+  const agg = {};
+  history.forEach(inv => {
+    inv.items.forEach(item => {
+      const key = item.productId;
+      if (!agg[key]) {
+        agg[key] = { brand: item.brand, sku: item.sku, qty: 0, price: item.wootPrice || item.unitPrice, revenue: 0, events: new Set() };
+      }
+      agg[key].qty += item.qty;
+      agg[key].revenue += item.amount;
+      agg[key].events.add(inv.saleName);
+    });
+  });
+
+  let items = Object.entries(agg).map(([pid, d]) => ({
+    productId: pid, brand: d.brand, sku: d.sku, qty: d.qty, price: d.price, revenue: d.revenue,
+    eventList: [...d.events].sort().join(', ')
+  }));
+
+  if (search) {
+    items = items.filter(r =>
+      r.productId.toLowerCase().includes(search) ||
+      r.sku.toLowerCase().includes(search) ||
+      r.brand.toLowerCase().includes(search) ||
+      r.eventList.toLowerCase().includes(search) ||
+      String(r.qty).includes(search)
+    );
+  }
+
+  switch (sort) {
+    case 'qty-desc': items.sort((a, b) => b.qty - a.qty); break;
+    case 'qty-asc': items.sort((a, b) => a.qty - b.qty); break;
+    case 'rev-desc': items.sort((a, b) => b.revenue - a.revenue); break;
+    case 'rev-asc': items.sort((a, b) => a.revenue - b.revenue); break;
+    case 'sku-asc': items.sort((a, b) => a.sku.localeCompare(b.sku)); break;
+  }
+
+  const totalUnits = items.reduce((s, r) => s + r.qty, 0);
+  const totalRev = items.reduce((s, r) => s + r.revenue, 0);
+  document.getElementById('dashTotalOrders').textContent = history.length;
+  document.getElementById('dashTotalUnits').textContent = totalUnits.toLocaleString();
+  document.getElementById('dashTotalRev').textContent = '$' + totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('dashUniqueSKUs').textContent = Object.keys(agg).length;
+
+  const top10 = [...items].sort((a, b) => b.qty - a.qty).slice(0, 10);
+  const maxQty = top10.length ? top10[0].qty : 1;
+  document.getElementById('dashChart').innerHTML = top10.length ? '<div style="font-size:13px;font-weight:600;color:#CC5200;margin-bottom:8px;">Top Sellers</div>' +
+    top10.map(r => {
+      const pct = (r.qty / maxQty * 100).toFixed(0);
+      return '<div style="display:flex;align-items:center;margin-bottom:4px;font-size:12px;">' +
+        '<span style="min-width:120px;color:#555;">' + esc(r.sku) + '</span>' +
+        '<div style="flex:1;background:#e8ecf0;border-radius:4px;height:20px;margin:0 8px;">' +
+          '<div style="width:' + pct + '%;background:linear-gradient(90deg,#CC5200,#FF8833);border-radius:4px;height:100%;"></div>' +
+        '</div>' +
+        '<span style="min-width:40px;text-align:right;font-weight:600;">' + r.qty + '</span>' +
+      '</div>';
+    }).join('') : '';
+
+  const tbody = document.getElementById('dashBody');
+  if (tbody) {
+    tbody.innerHTML = items.map((r, i) => {
+      const pctOfTotal = totalUnits > 0 ? (r.qty / totalUnits * 100).toFixed(1) : '0';
+      return '<tr>' +
+        '<td style="color:#bbb;font-size:11px;">' + (i + 1) + '</td>' +
+        '<td>' + esc(r.sku) + '</td>' +
+        '<td>' + esc(r.productId) + '</td>' +
+        '<td>' + esc(r.brand) + '</td>' +
+        '<td style="font-weight:600;">' + r.qty + '</td>' +
+        '<td>$' + r.price.toFixed(2) + '</td>' +
+        '<td class="amount">$' + r.revenue.toFixed(2) + '</td>' +
+        '<td>' + pctOfTotal + '%</td>' +
+      '</tr>';
+    }).join('');
+  }
+}
+
+(async function init() {
+  await loadData();
+  await refreshInvoiceHistory();
+  renderDashboard();
+})();
+
+const origSwitchTab = switchTab;
+switchTab = async function(tab) {
+  origSwitchTab(tab);
+  if (tab === 'dashboard') {
+    await refreshInvoiceHistory();
+    renderDashboard();
+  }
+};
+</script>
+</body>
+</html>
