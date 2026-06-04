@@ -388,7 +388,7 @@ async function loadPriceCount() {
 async function loadOrders() {
   // Always fetch all orders for duplicate checking
   const allData = await fetch(API + '/api/reorder-list').then(r => r.json());
-  allOrdersUnfiltered = (allData.orders || []).sort((a, b) => (b.id || 0) - (a.id || 0));
+  allOrdersUnfiltered = (allData.orders || []).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   // Apply filter for display
   if (currentFilter !== 'all') {
     allOrders = allOrdersUnfiltered.filter(o => o.status === currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1));
