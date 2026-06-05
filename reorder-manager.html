@@ -602,10 +602,10 @@ function renderTable() {
       <td class="stock-col"><span class="stock-val ${stockClass}">${o.current_stock > 0 ? Math.floor(o.current_stock) : 'OOS'}</span></td>
       <td style="text-align:center;">${sold30Cell}</td>
       <td style="text-align:center;">${wfs90Cell}</td>
-      <td style="text-align:center" title="Manual override if set, otherwise 90-day units sold across all sellers (Walmart 90d + Amazon 30d×3 + Target+ 90d)">${isRequested ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="${o.suggested_qty_90d || 0}" onchange="updateOrder(${o.id},'suggested_qty',this.value)">${(!o.suggested_qty && o.suggested_qty_90d) ? `<div style="font-size:10px;color:var(--text-light);margin-top:2px;font-style:italic;">auto: ${o.suggested_qty_90d}</div>` : ''}` : (o.suggested_qty || (o.suggested_qty_90d ? `<span style="font-style:italic;color:var(--text-light);" title="Auto-suggested from 90d total">${o.suggested_qty_90d}</span>` : '-'))}</td>
-      <td style="text-align:center">${isRequested || isOrdered ? `<input class="inline-num" type="number" value="${o.production_qty || ''}" placeholder="0" onchange="updateOrder(${o.id},'production_qty',this.value)">` : (o.production_qty || '-')}</td>
+      <td style="text-align:center" title="Manual override if set, otherwise 90-day units sold across all sellers (Walmart 90d + Amazon 30d×3 + Target+ 90d)">${isRequested ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="${o.suggested_qty_90d || 0}" oninput="debouncedUpdate(${o.id},'suggested_qty',this.value)">${(!o.suggested_qty && o.suggested_qty_90d) ? `<div style="font-size:10px;color:var(--text-light);margin-top:2px;font-style:italic;">auto: ${o.suggested_qty_90d}</div>` : ''}` : (o.suggested_qty || (o.suggested_qty_90d ? `<span style="font-style:italic;color:var(--text-light);" title="Auto-suggested from 90d total">${o.suggested_qty_90d}</span>` : '-'))}</td>
+      <td style="text-align:center">${isRequested || isOrdered ? `<input class="inline-num" type="number" value="${o.production_qty || ''}" placeholder="0" oninput="debouncedUpdate(${o.id},'production_qty',this.value)">` : (o.production_qty || '-')}</td>
       <td style="text-align:right;font-size:12px;color:var(--text-light)">${o.original_cost ? '$' + o.original_cost.toFixed(2) : '-'}</td>
-      <td style="text-align:right">${isRequested || isOrdered ? `<input class="inline-cost" type="number" step="0.01" value="${o.new_cost || ''}" placeholder="$0.00" onchange="updateOrder(${o.id},'new_cost',this.value)">` : (o.new_cost ? '$' + o.new_cost.toFixed(2) : '-')}</td>
+      <td style="text-align:right">${isRequested || isOrdered ? `<input class="inline-cost" type="number" step="0.01" value="${o.new_cost || ''}" placeholder="$0.00" oninput="debouncedUpdate(${o.id},'new_cost',this.value)">` : (o.new_cost ? '$' + o.new_cost.toFixed(2) : '-')}</td>
       <td><span class="badge ${badgeClass}">${o.status}</span></td>
       <td style="font-size:12px;color:var(--text-light)">${dateCell}</td>
       <td><button class="btn btn-outline" style="font-size:11px;padding:3px 8px;${o.notes ? 'color:var(--accent);border-color:var(--accent);' : ''}" onclick="openNotesModal(${o.id})">${o.notes ? (o.notes.length > 20 ? o.notes.substring(0,20)+'...' : o.notes) : 'Notes'}</button></td>
@@ -716,6 +716,13 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   }[c]));
+}
+
+const _updateTimers = {};
+function debouncedUpdate(id, field, value) {
+  const key = id + '_' + field;
+  clearTimeout(_updateTimers[key]);
+  _updateTimers[key] = setTimeout(() => updateOrder(id, field, value), 600);
 }
 
 async function updateOrder(id, field, value) {
