@@ -1122,12 +1122,11 @@ function renderPreview() {
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-async function downloadInvoice() {
-  const saleName = document.getElementById('saleName').value || 'Invoice';
-  const dateStr = document.getElementById('invoiceDate').value;
+// Builds the invoice workbook from an explicit `rows` array so it can be reused
+// for both the live upload flow and per-event "Generate Invoice" buttons.
+async function _buildInvoiceWorkbook(saleName, dateStr, customerId, rows) {
   const dateObj = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
   const formattedDate = (dateObj.getMonth() + 1) + '/' + dateObj.getDate() + '/' + dateObj.getFullYear();
-  const customerId = document.getElementById('customerId').value || 'A202';
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Sheet1');
@@ -1213,7 +1212,7 @@ async function downloadInvoice() {
 
   // Data rows starting at 17
   const dataStartRow = 17;
-  invoiceData.forEach((r, i) => {
+  rows.forEach((r, i) => {
     const n = dataStartRow + i;
     ws.getCell('A'+n).value = r.brand;
     ws.getCell('B'+n).value = r.productId;
@@ -1225,10 +1224,10 @@ async function downloadInvoice() {
   });
 
   // Total row — lighter blue highlight
-  const lastDataRow = dataStartRow + invoiceData.length - 1;
+  const lastDataRow = dataStartRow + rows.length - 1;
   const totalRowNum = lastDataRow + 2;
-  const totalQty = invoiceData.reduce((s, r) => s + r.qty, 0);
-  const totalAmt = invoiceData.reduce((s, r) => s + r.amount, 0);
+  const totalQty = rows.reduce((s, r) => s + r.qty, 0);
+  const totalAmt = rows.reduce((s, r) => s + r.amount, 0);
 
   ws.getCell('A'+totalRowNum).value = 'Total';
   ws.getCell('D'+totalRowNum).value = { formula: 'SUM(D'+dataStartRow+':D'+lastDataRow+')', result: totalQty };
@@ -1242,15 +1241,49 @@ async function downloadInvoice() {
 
   // Update sheet range (no col G anymore)
   ws['!ref'] = 'A1:F' + totalRowNum;
+  return wb;
+}
 
-  // Generate and download
+async function _saveWorkbook(wb, filename) {
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  saveAs(blob, `Invoice - ${saleName} - ${dateStr}.xlsx`);
+  saveAs(blob, filename);
+}
+
+async function downloadInvoice() {
+  const saleName = document.getElementById('saleName').value || 'Invoice';
+  const dateStr = document.getElementById('invoiceDate').value;
+  const customerId = document.getElementById('customerId').value || 'A202';
+
+  const wb = await _buildInvoiceWorkbook(saleName, dateStr, customerId, invoiceData);
+  await _saveWorkbook(wb, `Invoice - ${saleName} - ${dateStr}.xlsx`);
 
   // Save invoice to history for dashboard — await so the toast doesn't lie
   const saved = await saveInvoiceToHistory(saleName, dateStr, invoiceData);
   showToast(saved ? 'Invoice downloaded & saved to dashboard!' : 'Invoice downloaded — dashboard save failed');
+}
+
+// Regenerate a downloadable invoice for an existing event by combining all of
+// that event's saved invoice line items (aggregated by product + price). Does
+// NOT re-save to history — the dashboard already counts the source invoices.
+async function generateEventInvoice(eventName) {
+  const evInvoices = getInvoiceHistory().filter(inv => inv.saleName === eventName);
+  if (!evInvoices.length) { showToast('No invoice data found for ' + eventName); return; }
+
+  const map = {};
+  evInvoices.forEach(inv => (inv.items || []).forEach(it => {
+    const key = (it.productId || '') + '|' + (it.sku || '') + '|' + it.unitPrice;
+    if (!map[key]) map[key] = { brand: it.brand, productId: it.productId, sku: it.sku, unitPrice: it.unitPrice, qty: 0, amount: 0 };
+    map[key].qty += it.qty;
+    map[key].amount += it.amount;
+  }));
+  const rows = Object.values(map).sort((a, b) => String(a.productId).localeCompare(String(b.productId)));
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const customerId = document.getElementById('customerId')?.value || 'A202';
+  const wb = await _buildInvoiceWorkbook(eventName, dateStr, customerId, rows);
+  await _saveWorkbook(wb, `Invoice - ${eventName} - ${dateStr}.xlsx`);
+  showToast('Invoice generated for ' + eventName);
 }
 
 async function saveInvoiceToHistory(saleName, dateStr, data) {
@@ -1367,13 +1400,25 @@ function renderDashboard() {
     if (events.length === 0) {
       eventSummaryEl.innerHTML = '<p style="color:#999;font-size:13px;">No events found.</p>';
     } else {
-      eventSummaryEl.innerHTML = '<table style="width:100%;"><thead><tr><th>Event Name</th><th>Invoices</th><th>Total QTY</th><th>Total Revenue</th></tr></thead><tbody>' +
-        events.map(([name, d]) => `<tr>
-          <td><a href="#" onclick="filterByEvent('${esc(name.replace(/'/g, "\\'"))}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(name)}</a></td>
+      // When an event is selected, the table filters to just that one — show a
+      // clear "back to all events" control so the click isn't a one-way trip.
+      const backBar = eventFilter
+        ? `<div style="margin-bottom:10px;padding:8px 12px;background:#fff3cd;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:10px;">
+             <span>Showing only: <strong>${esc(eventFilter)}</strong></span>
+             <button onclick="clearDashFilters()" style="margin-left:auto;padding:4px 14px;border:1px solid #856404;background:#fff;color:#856404;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">← Show all events</button>
+           </div>`
+        : '';
+      eventSummaryEl.innerHTML = backBar + '<table style="width:100%;"><thead><tr><th>Event Name</th><th>Invoices</th><th>Total QTY</th><th>Total Revenue</th><th></th></tr></thead><tbody>' +
+        events.map(([name, d]) => {
+          const jsName = esc(name.replace(/'/g, "\\'"));
+          return `<tr>
+          <td><a href="#" onclick="filterByEvent('${jsName}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(name)}</a></td>
           <td>${d.count}</td>
           <td>${d.totalQty.toLocaleString()}</td>
           <td class="amount">$${d.totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        </tr>`).join('') + '</tbody></table>';
+          <td style="text-align:right;"><button onclick="generateEventInvoice('${jsName}')" style="padding:5px 12px;background:#0070C0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">⬇ Generate Invoice</button></td>
+        </tr>`;
+        }).join('') + '</tbody></table>';
     }
   }
 
