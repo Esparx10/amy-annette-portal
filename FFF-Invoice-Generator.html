@@ -1341,6 +1341,14 @@ function filterByEvent(eventName) {
   renderDashboard();
 }
 
+// Events table sort — defaults to newest-created first; click any header to re-sort.
+let dashEventSort = { col: 'date', dir: 'desc' };
+function setEventSort(col) {
+  if (dashEventSort.col === col) dashEventSort.dir = dashEventSort.dir === 'asc' ? 'desc' : 'asc';
+  else { dashEventSort.col = col; dashEventSort.dir = col === 'name' ? 'asc' : 'desc'; }
+  renderDashboard();
+}
+
 function renderDashboard() {
   const allHistory = getInvoiceHistory();
   const search = (document.getElementById('dashSearch')?.value || '').toLowerCase();
@@ -1389,14 +1397,17 @@ function renderDashboard() {
   if (eventSummaryEl) {
     const eventMap = {};
     history.forEach(inv => {
-      if (!eventMap[inv.saleName]) {
-        eventMap[inv.saleName] = { count: 0, totalQty: 0, totalRev: 0 };
-      }
-      eventMap[inv.saleName].count++;
-      eventMap[inv.saleName].totalQty += inv.totalQty;
-      eventMap[inv.saleName].totalRev += inv.totalAmount;
+      if (!eventMap[inv.saleName]) eventMap[inv.saleName] = { name: inv.saleName, count: 0, totalQty: 0, totalRev: 0, date: '' };
+      const e = eventMap[inv.saleName];
+      e.count++; e.totalQty += inv.totalQty; e.totalRev += inv.totalAmount;
+      if (inv.date && inv.date > e.date) e.date = inv.date;   // most-recent invoice date for the event
     });
-    const events = Object.entries(eventMap).sort((a, b) => b[1].totalRev - a[1].totalRev);
+    let events = Object.values(eventMap);
+    const sc = dashEventSort.col, dir = dashEventSort.dir === 'asc' ? 1 : -1;
+    events.sort((a, b) => {
+      if (sc === 'name' || sc === 'date') return String(a[sc]).localeCompare(String(b[sc])) * dir;
+      return ((a[sc] || 0) - (b[sc] || 0)) * dir;
+    });
     if (events.length === 0) {
       eventSummaryEl.innerHTML = '<p style="color:#999;font-size:13px;">No events found.</p>';
     } else {
@@ -1408,14 +1419,20 @@ function renderDashboard() {
              <button onclick="clearDashFilters()" style="margin-left:auto;padding:4px 14px;border:1px solid #856404;background:#fff;color:#856404;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">← Show all events</button>
            </div>`
         : '';
-      eventSummaryEl.innerHTML = backBar + '<table style="width:100%;"><thead><tr><th>Event Name</th><th>Invoices</th><th>Total QTY</th><th>Total Revenue</th><th></th></tr></thead><tbody>' +
-        events.map(([name, d]) => {
-          const jsName = esc(name.replace(/'/g, "\\'"));
+      const arrow = c => dashEventSort.col === c ? (dashEventSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+      const th = (label, col, align) => `<th onclick="setEventSort('${col}')" style="cursor:pointer;user-select:none;${align ? 'text-align:' + align + ';' : ''}" title="Sort by ${label}">${label}${arrow(col)}</th>`;
+      eventSummaryEl.innerHTML = backBar + '<table style="width:100%;"><thead><tr>' +
+        th('Event Name', 'name') + th('Date', 'date') + th('Invoices', 'count') + th('Total QTY', 'totalQty') + th('Total Revenue', 'totalRev') + '<th></th>' +
+        '</tr></thead><tbody>' +
+        events.map(e => {
+          const jsName = esc(e.name.replace(/'/g, "\\'"));
+          const dstr = e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('en-US') : '—';
           return `<tr>
-          <td><a href="#" onclick="filterByEvent('${jsName}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(name)}</a></td>
-          <td>${d.count}</td>
-          <td>${d.totalQty.toLocaleString()}</td>
-          <td class="amount">$${d.totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td><a href="#" onclick="filterByEvent('${jsName}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(e.name)}</a></td>
+          <td>${dstr}</td>
+          <td>${e.count}</td>
+          <td>${e.totalQty.toLocaleString()}</td>
+          <td class="amount">$${e.totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           <td style="text-align:right;"><button onclick="generateEventInvoice('${jsName}')" style="padding:5px 12px;background:#0070C0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">⬇ Generate Invoice</button></td>
         </tr>`;
         }).join('') + '</tbody></table>';
