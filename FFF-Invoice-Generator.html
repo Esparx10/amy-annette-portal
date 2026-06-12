@@ -1349,6 +1349,36 @@ function setEventSort(col) {
   renderDashboard();
 }
 
+// Multi-select events (e.g. two batches/windows of the same sale) → one combined invoice.
+let selectedEvents = new Set();
+function toggleEventSelect(name, checked) {
+  if (checked) selectedEvents.add(name); else selectedEvents.delete(name);
+  renderDashboard();
+}
+async function generateCombinedInvoice() {
+  const names = [...selectedEvents];
+  if (names.length < 2) { showToast('Select at least 2 events to combine'); return; }
+  const hist = getInvoiceHistory().filter(inv => selectedEvents.has(inv.saleName));
+  if (!hist.length) { showToast('No invoice data for the selected events'); return; }
+  // merge line items across all selected events, by product + price
+  const map = {};
+  hist.forEach(inv => (inv.items || []).forEach(it => {
+    const key = (it.productId || '') + '|' + (it.sku || '') + '|' + it.unitPrice;
+    if (!map[key]) map[key] = { brand: it.brand, productId: it.productId, sku: it.sku, unitPrice: it.unitPrice, qty: 0, amount: 0 };
+    map[key].qty += it.qty; map[key].amount += it.amount;
+  }));
+  const rows = Object.values(map).sort((a, b) => String(a.productId).localeCompare(String(b.productId)));
+  // name: shared base (strip "-N") if all selected share one, else join the names
+  const bases = [...new Set(names.map(n => n.replace(/\s*-\s*\d+$/, '').trim()))];
+  const sale = bases.length === 1 ? bases[0] : names.join(' + ');
+  const dates = hist.map(i => i.date).filter(Boolean).sort();
+  const dateStr = dates.length ? dates[dates.length - 1] : new Date().toISOString().slice(0, 10);
+  const customerId = document.getElementById('customerId')?.value || 'A202';
+  const wb = await _buildInvoiceWorkbook(sale, dateStr, customerId, rows);
+  await _saveWorkbook(wb, `Invoice - ${sale} - ${dateStr}.xlsx`);
+  showToast(`Combined invoice generated from ${names.length} events (${rows.length} line items)`);
+}
+
 function renderDashboard() {
   const allHistory = getInvoiceHistory();
   const search = (document.getElementById('dashSearch')?.value || '').toLowerCase();
@@ -1419,15 +1449,25 @@ function renderDashboard() {
              <button onclick="clearDashFilters()" style="margin-left:auto;padding:4px 14px;border:1px solid #856404;background:#fff;color:#856404;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">← Show all events</button>
            </div>`
         : '';
+      // When 2+ events are checked, offer to merge them into one invoice.
+      const combineBar = selectedEvents.size >= 2
+        ? `<div style="margin-bottom:10px;padding:8px 12px;background:#e7f1ff;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:12px;">
+             <span><strong>${selectedEvents.size}</strong> events selected</span>
+             <button onclick="generateCombinedInvoice()" style="padding:5px 14px;background:#0070C0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">⬇ Generate 1 Combined Invoice</button>
+             <button onclick="selectedEvents.clear();renderDashboard();" style="margin-left:auto;padding:4px 10px;border:1px solid #ccc;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;">Clear selection</button>
+           </div>`
+        : '';
       const arrow = c => dashEventSort.col === c ? (dashEventSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
       const th = (label, col, align) => `<th onclick="setEventSort('${col}')" style="cursor:pointer;user-select:none;${align ? 'text-align:' + align + ';' : ''}" title="Sort by ${label}">${label}${arrow(col)}</th>`;
-      eventSummaryEl.innerHTML = backBar + '<table style="width:100%;"><thead><tr>' +
+      eventSummaryEl.innerHTML = backBar + combineBar + '<table style="width:100%;"><thead><tr>' +
+        '<th style="width:28px;" title="Select to combine"></th>' +
         th('Event Name', 'name') + th('Date', 'date') + th('Invoices', 'count') + th('Total QTY', 'totalQty') + th('Total Revenue', 'totalRev') + '<th></th>' +
         '</tr></thead><tbody>' +
         events.map(e => {
           const jsName = esc(e.name.replace(/'/g, "\\'"));
           const dstr = e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('en-US') : '—';
           return `<tr>
+          <td style="text-align:center;"><input type="checkbox" onchange="toggleEventSelect('${jsName}', this.checked)" ${selectedEvents.has(e.name) ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;"></td>
           <td><a href="#" onclick="filterByEvent('${jsName}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(e.name)}</a></td>
           <td>${dstr}</td>
           <td>${e.count}</td>
