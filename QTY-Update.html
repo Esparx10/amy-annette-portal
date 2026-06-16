@@ -216,6 +216,7 @@
     <div class="export-bar">
       <div class="export-info" id="exportInfo-jewelry">402 of 404 SKUs with quantities</div>
       <div style="display:flex;gap:8px;">
+        <button class="btn-secondary" id="unmatchedBtn-jewelry" onclick="toggleUnmatched('jewelry')">Show Unmatched</button>
         <button class="btn-secondary" onclick="copyQtyColumn('jewelry')">Copy Qty Column</button>
         <button class="btn-secondary" onclick="clearQtys('jewelry')">Clear All</button>
         <button class="btn btn-primary" onclick="exportCSV('jewelry')">Export CSV</button>
@@ -3078,6 +3079,7 @@
     <div class="export-bar">
       <div class="export-info" id="exportInfo-toys">0 of 29 SKUs with quantities</div>
       <div style="display:flex;gap:8px;">
+        <button class="btn-secondary" id="unmatchedBtn-toys" onclick="toggleUnmatched('toys')">Show Unmatched</button>
         <button class="btn-secondary" onclick="copyQtyColumn('toys')">Copy Qty Column</button>
         <button class="btn-secondary" onclick="clearQtys('toys')">Clear All</button>
         <button class="btn btn-primary" onclick="exportCSV('toys')">Export CSV</button>
@@ -3711,12 +3713,29 @@ function closeMatchModal() {
   if (accepted > 0) showToast(accepted + ' close matches accepted');
 }
 
+let showUnmatchedOnly = { jewelry: false, toys: false };
+function isUnmatched(t, sku) { return !t.qtys[sku] || String(t.qtys[sku]).trim() === ''; }
+function updateUnmatchedBtn(tabId) {
+  const unBtn = document.getElementById('unmatchedBtn-' + tabId);
+  if (!unBtn) return;
+  const t = state[tabId];
+  const un = t.skus.filter(s => isUnmatched(t, s)).length;
+  unBtn.textContent = showUnmatchedOnly[tabId] ? ('Show All (' + un + ' left)') : ('Show Unmatched (' + un + ')');
+  unBtn.style.background = showUnmatchedOnly[tabId] ? '#c4a35a' : '';
+  unBtn.style.color = showUnmatchedOnly[tabId] ? '#fff' : '';
+}
+function toggleUnmatched(tabId) {
+  showUnmatchedOnly[tabId] = !showUnmatchedOnly[tabId];
+  renderTable(tabId);
+}
+
 function renderTable(tabId) {
   const t = state[tabId];
   const filter = (document.getElementById('search-' + tabId).value || '').toUpperCase().trim();
   const tbody = document.getElementById('tbody-' + tabId);
 
-  const filtered = filter ? t.skus.filter(s => s.toUpperCase().includes(filter) || makeKey(s).includes(filter)) : t.skus;
+  let filtered = filter ? t.skus.filter(s => s.toUpperCase().includes(filter) || makeKey(s).includes(filter)) : t.skus;
+  if (showUnmatchedOnly[tabId]) filtered = filtered.filter(s => isUnmatched(t, s));
 
   let withQty = 0;
   tbody.innerHTML = filtered.map((sku, i) => {
@@ -3760,6 +3779,7 @@ function renderTable(tabId) {
   // Count total with qtys (not just filtered)
   const totalWithQty = Object.keys(t.qtys).filter(k => t.qtys[k] !== '').length;
   document.getElementById('exportInfo-' + tabId).textContent = totalWithQty + ' of ' + t.skus.length + ' SKUs with quantities';
+  updateUnmatchedBtn(tabId);
 }
 
 function manualQty(tabId, sku, val) {
@@ -3771,6 +3791,7 @@ function manualQty(tabId, sku, val) {
   }
   const totalWithQty = Object.keys(t.qtys).filter(k => t.qtys[k] !== '').length;
   document.getElementById('exportInfo-' + tabId).textContent = totalWithQty + ' of ' + t.skus.length + ' SKUs with quantities';
+  updateUnmatchedBtn(tabId);
 }
 
 function openRemapDialog(tabId, sku) {
