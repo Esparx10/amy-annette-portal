@@ -3343,6 +3343,14 @@ const state = {
   toys:    { skus: TOYS_SKUS,    qtys: {}, matched: 0 }
 };
 
+// Declared early (before any renderTable call) to avoid a temporal-dead-zone error
+let showUnmatchedOnly = { jewelry: false, toys: false };
+
+// Persist matched quantities across refreshes (like aliases already do)
+function saveQtys(tabId) {
+  try { localStorage.setItem('qtys_' + tabId, JSON.stringify(state[tabId].qtys)); } catch {}
+}
+
 // Strip everything before first hyphen to create match key
 function makeKey(sku) {
   // Strip known prefixes: IGT-DAAS-, DAAS-, IGT-, etc.
@@ -3713,7 +3721,6 @@ function closeMatchModal() {
   if (accepted > 0) showToast(accepted + ' close matches accepted');
 }
 
-let showUnmatchedOnly = { jewelry: false, toys: false };
 function isUnmatched(t, sku) { return !t.qtys[sku] || String(t.qtys[sku]).trim() === ''; }
 function updateUnmatchedBtn(tabId) {
   const unBtn = document.getElementById('unmatchedBtn-' + tabId);
@@ -3780,6 +3787,7 @@ function renderTable(tabId) {
   const totalWithQty = Object.keys(t.qtys).filter(k => t.qtys[k] !== '').length;
   document.getElementById('exportInfo-' + tabId).textContent = totalWithQty + ' of ' + t.skus.length + ' SKUs with quantities';
   updateUnmatchedBtn(tabId);
+  saveQtys(tabId);
 }
 
 function manualQty(tabId, sku, val) {
@@ -3792,6 +3800,7 @@ function manualQty(tabId, sku, val) {
   const totalWithQty = Object.keys(t.qtys).filter(k => t.qtys[k] !== '').length;
   document.getElementById('exportInfo-' + tabId).textContent = totalWithQty + ' of ' + t.skus.length + ' SKUs with quantities';
   updateUnmatchedBtn(tabId);
+  saveQtys(tabId);
 }
 
 function openRemapDialog(tabId, sku) {
@@ -4006,6 +4015,11 @@ function addSku(tabId) {
   try {
     const deleted = JSON.parse(localStorage.getItem('deletedSkus_' + tabId) || '[]');
     state[tabId].skus = state[tabId].skus.filter(s => !deleted.includes(s));
+  } catch {}
+  // Restore saved quantities so a refresh keeps the matched data
+  try {
+    const savedQtys = JSON.parse(localStorage.getItem('qtys_' + tabId) || '{}');
+    if (savedQtys && typeof savedQtys === 'object') state[tabId].qtys = savedQtys;
   } catch {}
 });
 
