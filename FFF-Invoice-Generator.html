@@ -1381,12 +1381,19 @@ async function generateCombinedInvoice() {
 }
 
 // Per-event Invoiced / Paid status, persisted server-side via fff settings.
-function getEventStatusMap() { return dbLoadSetting('eventStatus') || {}; }
+// NOTE: the fff_settings table stores each setting as a plain key/value string,
+// so the nested status object MUST be JSON-stringified or it saves as junk.
+function getEventStatusMap() {
+  const raw = dbLoadSetting('eventStatus');
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;            // defensive
+  try { return JSON.parse(raw) || {}; } catch (e) { return {}; }
+}
 async function setEventStatus(name, field, val) {
   const m = getEventStatusMap();
   m[name] = m[name] || { invoiced: false, paid: false };
   m[name][field] = val;
-  await dbSaveSetting('eventStatus', m);   // POSTs to /api/fff/settings
+  await dbSaveSetting('eventStatus', JSON.stringify(m));   // store as a string so it survives the key/value settings table
   showToast((field === 'paid' ? 'Paid' : 'Invoiced') + (val ? ' ✓ ' : ' cleared — ') + name);
 }
 
