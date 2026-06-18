@@ -1379,6 +1379,16 @@ async function generateCombinedInvoice() {
   showToast(`Combined invoice generated from ${names.length} events (${rows.length} line items)`);
 }
 
+// Per-event Invoiced / Paid status, persisted server-side via fff settings.
+function getEventStatusMap() { return dbLoadSetting('eventStatus') || {}; }
+async function setEventStatus(name, field, val) {
+  const m = getEventStatusMap();
+  m[name] = m[name] || { invoiced: false, paid: false };
+  m[name][field] = val;
+  await dbSaveSetting('eventStatus', m);   // POSTs to /api/fff/settings
+  showToast((field === 'paid' ? 'Paid' : 'Invoiced') + (val ? ' ✓ ' : ' cleared — ') + name);
+}
+
 function renderDashboard() {
   const allHistory = getInvoiceHistory();
   const search = (document.getElementById('dashSearch')?.value || '').toLowerCase();
@@ -1459,13 +1469,15 @@ function renderDashboard() {
         : '';
       const arrow = c => dashEventSort.col === c ? (dashEventSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
       const th = (label, col, align) => `<th onclick="setEventSort('${col}')" style="cursor:pointer;user-select:none;${align ? 'text-align:' + align + ';' : ''}" title="Sort by ${label}">${label}${arrow(col)}</th>`;
+      const statusMap = getEventStatusMap();
       eventSummaryEl.innerHTML = backBar + combineBar + '<table style="width:100%;"><thead><tr>' +
         '<th style="width:28px;" title="Select to combine"></th>' +
-        th('Event Name', 'name') + th('Date', 'date') + th('Invoices', 'count') + th('Total QTY', 'totalQty') + th('Total Revenue', 'totalRev') + '<th></th>' +
+        th('Event Name', 'name') + th('Date', 'date') + th('Invoices', 'count') + th('Total QTY', 'totalQty') + th('Total Revenue', 'totalRev') + '<th style="text-align:center;">Invoiced</th><th style="text-align:center;">Paid</th><th></th>' +
         '</tr></thead><tbody>' +
         events.map(e => {
           const jsName = esc(e.name.replace(/'/g, "\\'"));
           const dstr = e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('en-US') : '—';
+          const st = statusMap[e.name] || {};
           return `<tr>
           <td style="text-align:center;"><input type="checkbox" onchange="toggleEventSelect('${jsName}', this.checked)" ${selectedEvents.has(e.name) ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;"></td>
           <td><a href="#" onclick="filterByEvent('${jsName}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(e.name)}</a></td>
@@ -1473,6 +1485,8 @@ function renderDashboard() {
           <td>${e.count}</td>
           <td>${e.totalQty.toLocaleString()}</td>
           <td class="amount">$${e.totalRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="text-align:center;"><input type="checkbox" ${st.invoiced ? 'checked' : ''} onchange="setEventStatus('${jsName}','invoiced',this.checked)" style="cursor:pointer;width:18px;height:18px;"></td>
+          <td style="text-align:center;"><input type="checkbox" ${st.paid ? 'checked' : ''} onchange="setEventStatus('${jsName}','paid',this.checked)" style="cursor:pointer;width:18px;height:18px;"></td>
           <td style="text-align:right;"><button onclick="generateEventInvoice('${jsName}')" style="padding:5px 12px;background:#0070C0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">⬇ Generate Invoice</button></td>
         </tr>`;
         }).join('') + '</tbody></table>';
