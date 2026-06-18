@@ -1351,6 +1351,7 @@ function setEventSort(col) {
 
 // Multi-select events (e.g. two batches/windows of the same sale) → one combined invoice.
 let selectedEvents = new Set();
+let dashStatusFilter = 'all';   // all | invoiced | uninvoiced | paid | unpaid
 function toggleEventSelect(name, checked) {
   if (checked) selectedEvents.add(name); else selectedEvents.delete(name);
   renderDashboard();
@@ -1470,15 +1471,28 @@ function renderDashboard() {
       const arrow = c => dashEventSort.col === c ? (dashEventSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
       const th = (label, col, align) => `<th onclick="setEventSort('${col}')" style="cursor:pointer;user-select:none;${align ? 'text-align:' + align + ';' : ''}" title="Sort by ${label}">${label}${arrow(col)}</th>`;
       const statusMap = getEventStatusMap();
-      eventSummaryEl.innerHTML = backBar + combineBar + '<table style="width:100%;"><thead><tr>' +
+      const _is = (e, f) => (statusMap[e.name] || {})[f];
+      let evShown = events;
+      if (dashStatusFilter === 'invoiced')   evShown = events.filter(e => _is(e, 'invoiced'));
+      else if (dashStatusFilter === 'uninvoiced') evShown = events.filter(e => !_is(e, 'invoiced'));
+      else if (dashStatusFilter === 'paid')   evShown = events.filter(e => _is(e, 'paid'));
+      else if (dashStatusFilter === 'unpaid') evShown = events.filter(e => !_is(e, 'paid'));
+      const statusOpts = [['all','Show all'],['invoiced','Invoiced'],['uninvoiced','Not invoiced'],['paid','Paid'],['unpaid','Unpaid']]
+        .map(([v,l]) => `<option value="${v}"${dashStatusFilter===v?' selected':''}>${l}</option>`).join('');
+      const statusBar = `<div style="margin-bottom:10px;font-size:13px;display:flex;align-items:center;gap:8px;">
+        <span style="color:#555;">Status filter:</span>
+        <select onchange="dashStatusFilter=this.value;renderDashboard();" style="padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;cursor:pointer;">${statusOpts}</select>
+        <span style="color:#999;">${evShown.length} of ${events.length} events</span></div>`;
+      eventSummaryEl.innerHTML = backBar + combineBar + statusBar + '<table style="width:100%;"><thead><tr>' +
         '<th style="width:28px;" title="Select to combine"></th>' +
         th('Event Name', 'name') + th('Date', 'date') + th('Invoices', 'count') + th('Total QTY', 'totalQty') + th('Total Revenue', 'totalRev') + '<th style="text-align:center;">Invoiced</th><th style="text-align:center;">Paid</th><th></th>' +
         '</tr></thead><tbody>' +
-        events.map(e => {
+        evShown.map(e => {
           const jsName = esc(e.name.replace(/'/g, "\\'"));
           const dstr = e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('en-US') : '—';
           const st = statusMap[e.name] || {};
-          return `<tr>
+          const rowBg = st.paid ? 'background:#e9f7ef;' : (st.invoiced ? 'background:#fff8e1;' : '');
+          return `<tr style="${rowBg}">
           <td style="text-align:center;"><input type="checkbox" onchange="toggleEventSelect('${jsName}', this.checked)" ${selectedEvents.has(e.name) ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;"></td>
           <td><a href="#" onclick="filterByEvent('${jsName}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${esc(e.name)}</a></td>
           <td>${dstr}</td>
