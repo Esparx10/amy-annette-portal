@@ -843,6 +843,17 @@ function switchTab(tab) {
 
 // Master Sheet Tab
 function renderMasterTable() {
+  // Keep the master sheet ordered by Product ID. Sorting the array (not just the
+  // view) keeps data-idx aligned with masterData so edit/delete stay correct.
+  // Natural numeric order so IDI-FA-566 < IDI-FA-945 < IDI-FA-1000; blank/new
+  // rows sink to the bottom so a freshly added row doesn't jump while you fill it.
+  masterData.sort((a, b) => {
+    const pa = String(a.productId || '').trim(), pb = String(b.productId || '').trim();
+    if (!pa && !pb) return 0;
+    if (!pa) return 1;
+    if (!pb) return -1;
+    return pa.localeCompare(pb, undefined, { numeric: true, sensitivity: 'base' });
+  });
   const tbody = document.getElementById('masterBody');
   tbody.innerHTML = masterData.map((r, i) => `<tr>
     <td><input value="${esc(r.brand)}" data-idx="${i}" data-field="brand"></td>
