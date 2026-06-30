@@ -652,6 +652,7 @@ const portalApps = [
   { icon: '🧾', name: 'Fab Fit Fun', desc: 'Invoice generator + line sheets for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
   { icon: '🔄', name: 'Reorder Manager', desc: 'Shared order list — sales requests, production fulfills', url: 'reorder-manager.html', status: 'live' },
   { icon: '🎨', name: 'Image Generator', desc: '2000×2000 Amazon listing images — auto-pull product photo, studio-polish, branded template', url: getWCCUrl() + '/image-generator', status: 'live' },
+  { icon: '↩️', name: 'Returns Disputes', desc: 'Customer returns worth disputing — 45-day deadlines, inspection, evidence prep & Seller Center filing tracker', url: getWCCUrl() + '/returns-disputes', status: 'live' },
 ];
 
 
@@ -869,6 +870,7 @@ function renderApps() {
   portalApps.forEach(app => {
     if (app.name === 'Walmart Command Center') app.url = getWCCUrl();
     if (app.name === 'Image Generator') app.url = getWCCUrl() + '/image-generator';
+    if (app.name === 'Returns Disputes') app.url = getWCCUrl() + '/returns-disputes';
   });
 
   const grid = document.getElementById('appGrid');
