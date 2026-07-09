@@ -1224,8 +1224,28 @@ async function handleDropFile(file) {
     const costCol = findCol('cost', 'newcost', 'price', 'unitcost');
     const notesCol = findCol('notes', 'note', 'comment');
 
-    if (!skuCol) { showDropResult('error', 'No SKU column found. Expected a column named SKU, Item ID, etc.'); return; }
+    if (!skuCol) { showDropResult('error', 'No SKU column found. Expected a column named SKU, Item ID, Entry Name, etc.'); return; }
     if (!qtyCol && !costCol) { showDropResult('error', 'No Qty or Cost column found. Expected Qty, Quantity, Cost, Price, etc.'); return; }
+
+    // Sortly inventory export ("Entry Name" column) → update WAREHOUSE STOCK for
+    // every SKU in the sheet, not the reorder-list quantities.
+    if (skuCol.toLowerCase().replace(/[^a-z]/g,'') === 'entryname') {
+      const stock = [];
+      for (const row of rows) {
+        const sku = String(row[skuCol] || '').trim();
+        if (!sku || row[qtyCol] === '' || row[qtyCol] === undefined) continue; // category rows
+        stock.push({ sku, qty: parseInt(row[qtyCol]) || 0 });
+      }
+      if (!stock.length) { showDropResult('error', 'No stock rows found in the Sortly export'); return; }
+      showDropResult('warning', `Sortly export detected — updating warehouse stock for ${stock.length} SKUs...`);
+      const r = await fetch(API + '/api/stock/bulk-update', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: stock }),
+      }).then(x => x.json());
+      if (r.error) { showDropResult('error', 'Error: ' + r.error); return; }
+      showDropResult('success', `✓ Warehouse stock updated for ${r.updated} SKUs` + (r.unknown ? ` (${r.unknown} not in the Walmart catalog — saved anyway)` : ''));
+      return;
+    }
 
     const items = [];
     for (const row of rows) {
