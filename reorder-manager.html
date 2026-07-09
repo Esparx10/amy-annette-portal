@@ -1219,7 +1219,7 @@ async function handleDropFile(file) {
     // Find column mappings (flexible matching)
     const headers = Object.keys(rows[0]);
     const findCol = (...names) => headers.find(h => names.some(n => h.toLowerCase().replace(/[^a-z]/g,'').includes(n)));
-    const skuCol = findCol('sku', 'itemid', 'item');
+    const skuCol = findCol('sku', 'itemid', 'item', 'entryname');  // 'entryname' = Sortly exports
     const qtyCol = findCol('qty', 'quantity', 'productionqty', 'prodqty', 'units', 'amount');
     const costCol = findCol('cost', 'newcost', 'price', 'unitcost');
     const notesCol = findCol('notes', 'note', 'comment');
@@ -1235,6 +1235,7 @@ async function handleDropFile(file) {
       if (qtyCol && row[qtyCol] !== '') item.production_qty = parseInt(row[qtyCol]) || 0;
       if (costCol && row[costCol] !== '') item.new_cost = parseFloat(String(row[costCol]).replace(/[$,]/g, '')) || 0;
       if (notesCol && row[notesCol] !== '') item.notes = String(row[notesCol]);
+      if (Object.keys(item).length === 1) continue; // header/category rows (e.g. Sortly's 'Jewelry' with no qty)
       items.push(item);
     }
 
