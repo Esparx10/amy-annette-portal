@@ -32,7 +32,21 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .nav-btn:hover { background: var(--accent-hover); }
 .price-status { color: var(--text-light); font-size: 11px; }
 
-.container { max-width: 1300px; margin: 0 auto; padding: 20px; }
+.container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+/* Reorder table: keep it wide but compact so the action buttons (Order/Deny/×)
+   are visible without horizontal scrolling on typical laptop screens. */
+#orderTable { table-layout: auto; }
+#orderTable th, #orderTable td { padding: 6px 6px; }
+#orderTable th { font-size: 9px; letter-spacing: 0.2px; }
+#orderTable td { font-size: 12px; }
+#orderTable .btn { padding: 5px 8px; font-size: 11px; }
+#orderTable .btn-red { padding: 2px 6px; font-size: 13px; }
+#orderTable .inline-num { width: 52px; padding: 3px 4px; }
+#orderTable .inline-cost { width: 58px; padding: 3px 4px; }
+#orderTable td:last-child { white-space: nowrap; }
+@media (max-width: 1500px) {
+  .container { max-width: 100%; padding: 20px 12px; }
+}
 
 .btn { padding: 7px 14px; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: var(--font-body); }
 .btn-blue { background: var(--accent); color: #fff; }
@@ -233,7 +247,7 @@ tr:hover td { background: #faf6f1; }
   <!-- Order List Table -->
   <div class="card">
     <div class="table-scroll">
-      <table>
+      <table id="orderTable">
         <thead><tr>
           <th>SKU</th>
           <th title="When this row was requested (created_at timestamp)">Request Date</th>
@@ -1273,32 +1287,4 @@ async function handleDropFile(file) {
 
     let msg = `Updated ${resp.updated} of ${resp.total} SKUs`;
     if (resp.notFound.length) {
-      msg += ` — ${resp.notFound.length} not on list: ${resp.notFound.slice(0, 5).join(', ')}${resp.notFound.length > 5 ? '...' : ''}`;
-      showDropResult('warning', msg);
-    } else {
-      showDropResult('success', msg);
-    }
-
-    loadOrders();
-    document.getElementById('dropFile').value = '';
-  } catch (e) {
-    showDropResult('error', 'Error reading file: ' + e.message);
-  }
-}
-
-function showDropResult(type, msg) {
-  const el = document.getElementById('dropResult');
-  el.className = 'drop-result ' + type;
-  el.textContent = msg;
-  el.style.display = 'block';
-  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 5000);
-}
-
-// ─── Init ───
-checkConnection();
-loadPriceCount();
-loadOrders();
-document.getElementById('addSku').focus();
-</script>
-</body>
-</html>
+      msg += ` — ${resp.notFound.length} not on list: ${resp.notFound.slice(0, 5).join(', ')}${r
