@@ -1287,4 +1287,32 @@ async function handleDropFile(file) {
 
     let msg = `Updated ${resp.updated} of ${resp.total} SKUs`;
     if (resp.notFound.length) {
-      msg += ` — ${resp.notFound.length} not on list: ${resp.notFound.slice(0, 5).join(', ')}${r
+      msg += ` — ${resp.notFound.length} not on list: ${resp.notFound.slice(0, 5).join(', ')}${resp.notFound.length > 5 ? '...' : ''}`;
+      showDropResult('warning', msg);
+    } else {
+      showDropResult('success', msg);
+    }
+
+    loadOrders();
+    document.getElementById('dropFile').value = '';
+  } catch (e) {
+    showDropResult('error', 'Error reading file: ' + e.message);
+  }
+}
+
+function showDropResult(type, msg) {
+  const el = document.getElementById('dropResult');
+  el.className = 'drop-result ' + type;
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
+// ─── Init ───
+checkConnection();
+loadPriceCount();
+loadOrders();
+document.getElementById('addSku').focus();
+</script>
+</body>
+</html>
