@@ -711,7 +711,15 @@ async function addToList() {
   }
 
   // ── PRE-CHECK 2: Already on order (Requested or Ordered)? ────────
-  const existing = allOrdersUnfiltered.find(o => o.sku === sku && (o.status === 'Ordered' || o.status === 'Requested'));
+  // Only warn when the existing reorder is 30 days old or less — after
+  // 30 days on the list, re-requesting is treated as intentional.
+  const existing = allOrdersUnfiltered.find(o => {
+    if (o.sku !== sku || (o.status !== 'Ordered' && o.status !== 'Requested')) return false;
+    const refTs = o.ordered_at || o.created_at;
+    if (!refTs) return true; // no timestamp — warn to be safe
+    const ageDays = (Date.now() - new Date(refTs.replace(' ', 'T') + (refTs.endsWith('Z') ? '' : 'Z'))) / 86400000;
+    return ageDays <= 30;
+  });
   if (existing) {
     const orderDate = existing.ordered_at ? (existing.ordered_at.split(' ')[0] || existing.ordered_at.split('T')[0]) : 'unknown date';
     const qty = existing.production_qty || existing.suggested_qty || '?';
