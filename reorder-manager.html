@@ -109,6 +109,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   /* avoid being clipped by table-scroll containers — handled by JS too if needed */
 }
 .sold30-wrap:hover .sold30-tooltip { display: block; }
+.need90-wrap:hover .need90-card { display: block !important; }
 .sold30-wrap .sold30-tooltip::before {
   content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
   border-left: 6px solid transparent; border-right: 6px solid transparent;
@@ -255,7 +256,7 @@ tr:hover td { background: #faf6f1; }
           <th style="text-align:center" title="Number of times this SKU has been requested historically">Times</th>
           <th style="text-align:center">Stock</th>
           <th style="text-align:center" title="Units sold across all channels in the last 30 days. Walmart only for now — Amazon and Target+ slots are reserved.">Sold 30d</th>
-          <th style="text-align:center" title="Units sent to WFS on shipments in the last 90 days">WFS 90d</th>
+          <th style="text-align:center" title="Units needed to cover 90 days of demand (all channels). Hover a cell for the WFS / Amazon FBA split.">Need 90d</th>
           <th style="text-align:center">Suggested Qty</th>
           <th style="text-align:center">Production Qty</th>
           <th style="text-align:right">Original Cost</th>
@@ -608,10 +609,52 @@ function renderTable() {
     const sold30Cell = total30 > 0
       ? `<span class="sold30-wrap" style="position:relative;font-weight:600;cursor:help;">${total30}${breakdown ? ` <span style="color:#888;font-weight:400;font-size:10px;">(${breakdown})</span>` : ''}${reportCard}</span>`
       : `<span class="sold30-wrap" style="position:relative;color:#bbb;cursor:help;">0${reportCard}</span>`;
-    // wfs90 is already declared above (used by the rich tooltip card too)
-    const wfs90Cell = wfs90 > 0
-      ? `<span title="Units placed on shipments to WFS in the last 90 days" style="font-weight:600;color:var(--orange,#c08040);">${wfs90}</span>`
-      : `<span title="No WFS shipments in 90 days" style="color:#bbb;">0</span>`;
+    // ── NEED 90D cell ──────────────────────────────────────────────────
+    // Headline = 90-day demand across ALL channels. Hover breaks it into the
+    // two fulfillment networks that need stock sent ahead (WFS, Amazon FBA),
+    // each sized on its own channel's velocity and netted against what that
+    // network already holds + has inbound. wfs90 (units actually SENT to WFS
+    // in 90d) is kept, but demoted into the hover as history.
+    const need90    = +o.need90_demand || 0;
+    const needWfs   = +o.need90_wfs    || 0;
+    const needFba   = +o.need90_fba    || 0;
+    const wfsStk    = +o.wfs_stock     || 0;
+    const wfsInb    = +o.wfs_inbound   || 0;
+    const fbaStk    = +o.fba_stock     || 0;
+    const fbaInb    = +o.fba_inbound   || 0;
+
+    const needRow = (icon, label, need, stock, inb) => `
+      <tr>
+        <td style="padding:3px 8px;">${icon} ${label}</td>
+        <td style="padding:3px 8px;text-align:right;font-weight:600;color:${need > 0 ? '#c0392b' : '#2e7d32'};">${need > 0 ? need.toLocaleString() : '—'}</td>
+        <td style="padding:3px 8px;text-align:right;color:#666;">${stock.toLocaleString()}</td>
+        <td style="padding:3px 8px;text-align:right;color:#666;">${inb > 0 ? inb.toLocaleString() : '—'}</td>
+      </tr>`;
+
+    const need90Card = `
+      <div class="need90-card" style="position:absolute;z-index:60;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid #e5dfd6;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:8px;min-width:290px;text-align:left;display:none;">
+        <div style="font-size:11px;color:#7a6555;margin-bottom:5px;">
+          90-day need · velocity <strong>${(+o.need90_velocity || 0).toFixed(2)}</strong>/day (all channels)
+        </div>
+        <table style="border-collapse:collapse;font-size:11px;width:100%;">
+          <tr style="color:#999;font-size:10px;">
+            <td style="padding:2px 8px;">Network</td>
+            <td style="padding:2px 8px;text-align:right;">To send</td>
+            <td style="padding:2px 8px;text-align:right;">Stock</td>
+            <td style="padding:2px 8px;text-align:right;">Inbound</td>
+          </tr>
+          ${needRow('🏬', 'Walmart WFS', needWfs, wfsStk, wfsInb)}
+          ${needRow('📦', 'Amazon FBA', needFba, fbaStk, fbaInb)}
+        </table>
+        <div style="margin-top:6px;padding-top:5px;border-top:1px dashed #e5dfd6;font-size:11px;color:#7a6555;">
+          Total 90d demand: <strong>${need90.toLocaleString()}</strong> units
+          ${total30 > 0 ? ` (from ${total30.toLocaleString()} sold in 30d)` : ''}
+        </div>
+        ${wfs90 > 0 ? `<div style="margin-top:3px;font-size:11px;color:#7a6555;">📤 Already sent to WFS (90d): <strong>${wfs90.toLocaleString()}</strong> units</div>` : ''}
+      </div>`;
+
+    const need90Color = (needWfs + needFba) > 0 ? 'var(--red,#c0392b)' : 'var(--text-light,#bbb)';
+    const wfs90Cell = `<span class="need90-wrap" style="position:relative;font-weight:600;cursor:help;color:${need90 > 0 ? need90Color : '#bbb'};">${need90}${(needWfs + needFba) > 0 ? `<div style="font-size:10px;font-weight:600;color:#c0392b;">send ${(needWfs + needFba).toLocaleString()}</div>` : ''}${need90Card}</span>`;
 
     return `<tr>
       <td class="sku-cell" title="${(o.item_name || '').replace(/"/g,'&quot;')}">${o.sku}</td>
