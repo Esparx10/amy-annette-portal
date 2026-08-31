@@ -631,30 +631,62 @@ function renderTable() {
         <td style="padding:3px 8px;text-align:right;color:#666;">${inb > 0 ? inb.toLocaleString() : '—'}</td>
       </tr>`;
 
+    // 90-day demand per marketplace. Rows sum to need90_demand by construction.
+    const byCh = o.need90_by_channel || {};
+    const chRow = (icon, label, units30, units90) => (units90 > 0 || units30 > 0) ? `
+      <tr>
+        <td style="padding:2px 8px;">${icon} ${label}</td>
+        <td style="padding:2px 8px;text-align:right;color:#666;">${(units30 || 0).toLocaleString()}</td>
+        <td style="padding:2px 8px;text-align:right;font-weight:600;">${(units90 || 0).toLocaleString()}</td>
+      </tr>` : '';
+
     const need90Card = `
-      <div class="need90-card" style="position:absolute;z-index:60;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid #e5dfd6;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:8px;min-width:290px;text-align:left;display:none;">
+      <div class="need90-card" style="position:absolute;z-index:60;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid #e5dfd6;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:8px;min-width:320px;text-align:left;display:none;">
         <div style="font-size:11px;color:#7a6555;margin-bottom:5px;">
-          90-day need · velocity <strong>${(+o.need90_velocity || 0).toFixed(2)}</strong>/day (all channels)
+          90-day need · velocity <strong>${(+o.need90_velocity || 0).toFixed(2)}</strong>/day (all marketplaces)
         </div>
         <table style="border-collapse:collapse;font-size:11px;width:100%;">
           <tr style="color:#999;font-size:10px;">
-            <td style="padding:2px 8px;">Network</td>
-            <td style="padding:2px 8px;text-align:right;">To send</td>
-            <td style="padding:2px 8px;text-align:right;">Stock</td>
-            <td style="padding:2px 8px;text-align:right;">Inbound</td>
+            <td style="padding:2px 8px;">Marketplace</td>
+            <td style="padding:2px 8px;text-align:right;">Sold 30d</td>
+            <td style="padding:2px 8px;text-align:right;">Demand 90d</td>
           </tr>
-          ${needRow('🏬', 'Walmart WFS', needWfs, wfsStk, wfsInb)}
-          ${needRow('📦', 'Amazon FBA', needFba, fbaStk, fbaInb)}
+          ${chRow('🔵', 'Walmart', wm30,    byCh.walmart)}
+          ${chRow('🟠', 'Amazon',  az30,    byCh.amazon)}
+          ${chRow('🔴', 'Target+', tg30,    byCh.target)}
+          ${chRow('🟡', 'Woot',    woot30,  byCh.woot)}
+          ${chRow('🟣', 'FFF',     fff30,   byCh.fff)}
+          <tr style="border-top:1px solid #e5dfd6;">
+            <td style="padding:3px 8px;font-weight:600;">Total</td>
+            <td style="padding:3px 8px;text-align:right;color:#666;">${(total30 || 0).toLocaleString()}</td>
+            <td style="padding:3px 8px;text-align:right;font-weight:700;">${need90.toLocaleString()}</td>
+          </tr>
         </table>
-        <div style="margin-top:6px;padding-top:5px;border-top:1px dashed #e5dfd6;font-size:11px;color:#7a6555;">
-          Total 90d demand: <strong>${need90.toLocaleString()}</strong> units
-          ${total30 > 0 ? ` (from ${total30.toLocaleString()} sold in 30d)` : ''}
+        <div style="margin-top:7px;padding-top:6px;border-top:1px dashed #e5dfd6;">
+          <div style="font-size:10px;color:#999;margin-bottom:2px;">To cover all ${need90.toLocaleString()} units, each network needs:</div>
+          <table style="border-collapse:collapse;font-size:11px;width:100%;">
+            <tr style="color:#999;font-size:10px;">
+              <td style="padding:2px 8px;">Network</td>
+              <td style="padding:2px 8px;text-align:right;">To send</td>
+              <td style="padding:2px 8px;text-align:right;">Stock</td>
+              <td style="padding:2px 8px;text-align:right;">Inbound</td>
+            </tr>
+            ${needRow('🏬', 'Walmart WFS', needWfs, wfsStk, wfsInb)}
+            ${needRow('📦', 'Amazon FBA', needFba, fbaStk, fbaInb)}
+          </table>
+          <div style="font-size:10px;color:#999;margin-top:3px;font-style:italic;">Sized independently — don't add them together.</div>
         </div>
-        ${wfs90 > 0 ? `<div style="margin-top:3px;font-size:11px;color:#7a6555;">📤 Already sent to WFS (90d): <strong>${wfs90.toLocaleString()}</strong> units</div>` : ''}
+        ${wfs90 > 0 ? `<div style="margin-top:5px;padding-top:5px;border-top:1px dashed #e5dfd6;font-size:11px;color:#7a6555;">📤 Already sent to WFS (90d): <strong>${wfs90.toLocaleString()}</strong> units</div>` : ''}
       </div>`;
 
-    const need90Color = (needWfs + needFba) > 0 ? 'var(--red,#c0392b)' : 'var(--text-light,#bbb)';
-    const wfs90Cell = `<span class="need90-wrap" style="position:relative;font-weight:600;cursor:help;color:${need90 > 0 ? need90Color : '#bbb'};">${need90}${(needWfs + needFba) > 0 ? `<div style="font-size:10px;font-weight:600;color:#c0392b;">send ${(needWfs + needFba).toLocaleString()}</div>` : ''}${need90Card}</span>`;
+    // Sub-line lists each network separately — they overlap by design, so
+    // summing them would overstate what actually has to ship.
+    const sendBits = [
+      needWfs > 0 ? `WFS ${needWfs.toLocaleString()}` : null,
+      needFba > 0 ? `FBA ${needFba.toLocaleString()}` : null,
+    ].filter(Boolean).join(' · ');
+    const need90Color = (needWfs > 0 || needFba > 0) ? 'var(--red,#c0392b)' : 'var(--text-light,#bbb)';
+    const wfs90Cell = `<span class="need90-wrap" style="position:relative;font-weight:600;cursor:help;color:${need90 > 0 ? need90Color : '#bbb'};">${need90}${sendBits ? `<div style="font-size:10px;font-weight:600;color:#c0392b;">${sendBits}</div>` : ''}${need90Card}</span>`;
 
     return `<tr>
       <td class="sku-cell" title="${(o.item_name || '').replace(/"/g,'&quot;')}">${o.sku}</td>
