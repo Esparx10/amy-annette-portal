@@ -615,18 +615,22 @@ function renderTable() {
     // each sized on its own channel's velocity and netted against what that
     // network already holds + has inbound. wfs90 (units actually SENT to WFS
     // in 90d) is kept, but demoted into the hover as history.
-    const need90    = +o.need90_demand || 0;
-    const needWfs   = +o.need90_wfs    || 0;
-    const needFba   = +o.need90_fba    || 0;
+    const need90    = +o.need90_demand    || 0;
+    const needWh    = +o.need90_warehouse || 0;
+    // null = SKU has no presence on that network (not listed / never stocked).
+    // Distinct from 0, which means "listed and already covered".
+    const needWfs   = (o.need90_wfs === null || o.need90_wfs === undefined) ? null : (+o.need90_wfs || 0);
+    const needFba   = (o.need90_fba === null || o.need90_fba === undefined) ? null : (+o.need90_fba || 0);
     const wfsStk    = +o.wfs_stock     || 0;
     const wfsInb    = +o.wfs_inbound   || 0;
     const fbaStk    = +o.fba_stock     || 0;
     const fbaInb    = +o.fba_inbound   || 0;
 
-    const needRow = (icon, label, need, stock, inb) => `
+    const needRow = (icon, label, need, stock, inb, chDemand) => `
       <tr>
         <td style="padding:3px 8px;">${icon} ${label}</td>
-        <td style="padding:3px 8px;text-align:right;font-weight:600;color:${need > 0 ? '#c0392b' : '#2e7d32'};">${need > 0 ? need.toLocaleString() : '—'}</td>
+        <td style="padding:3px 8px;text-align:right;color:#666;">${need === null ? '<span style="color:#bbb;font-style:italic;">not listed</span>' : (chDemand || 0).toLocaleString()}</td>
+        <td style="padding:3px 8px;text-align:right;font-weight:600;color:${need === null ? '#bbb' : need > 0 ? '#c0392b' : '#2e7d32'};">${need === null ? '—' : need > 0 ? need.toLocaleString() : '✓'}</td>
         <td style="padding:3px 8px;text-align:right;color:#666;">${stock.toLocaleString()}</td>
         <td style="padding:3px 8px;text-align:right;color:#666;">${inb > 0 ? inb.toLocaleString() : '—'}</td>
       </tr>`;
@@ -663,29 +667,34 @@ function renderTable() {
           </tr>
         </table>
         <div style="margin-top:7px;padding-top:6px;border-top:1px dashed #e5dfd6;">
-          <div style="font-size:10px;color:#999;margin-bottom:2px;">To cover all ${need90.toLocaleString()} units, each network needs:</div>
+          <div style="font-size:10px;color:#999;margin-bottom:2px;">Where that demand is fulfilled from:</div>
           <table style="border-collapse:collapse;font-size:11px;width:100%;">
             <tr style="color:#999;font-size:10px;">
               <td style="padding:2px 8px;">Network</td>
+              <td style="padding:2px 8px;text-align:right;">Covers</td>
               <td style="padding:2px 8px;text-align:right;">To send</td>
               <td style="padding:2px 8px;text-align:right;">Stock</td>
               <td style="padding:2px 8px;text-align:right;">Inbound</td>
             </tr>
-            ${needRow('🏬', 'Walmart WFS', needWfs, wfsStk, wfsInb)}
-            ${needRow('📦', 'Amazon FBA', needFba, fbaStk, fbaInb)}
+            ${needRow('🏬', 'Walmart WFS', needWfs, wfsStk, wfsInb, byCh.walmart)}
+            ${needRow('📦', 'Amazon FBA', needFba, fbaStk, fbaInb, byCh.amazon)}
+            ${needWh > 0 ? `<tr>
+              <td style="padding:3px 8px;">🏠 Warehouse</td>
+              <td style="padding:3px 8px;text-align:right;color:#666;">${needWh.toLocaleString()}</td>
+              <td style="padding:3px 8px;text-align:right;color:#999;" colspan="3">Target+ / Woot / FFF ship direct</td>
+            </tr>` : ''}
           </table>
-          <div style="font-size:10px;color:#999;margin-top:3px;font-style:italic;">Sized independently — don't add them together.</div>
+          <div style="font-size:10px;color:#999;margin-top:3px;font-style:italic;">Each network is sized only on demand it can fulfill.</div>
         </div>
         ${wfs90 > 0 ? `<div style="margin-top:5px;padding-top:5px;border-top:1px dashed #e5dfd6;font-size:11px;color:#7a6555;">📤 Already sent to WFS (90d): <strong>${wfs90.toLocaleString()}</strong> units</div>` : ''}
       </div>`;
 
-    // Sub-line lists each network separately — they overlap by design, so
-    // summing them would overstate what actually has to ship.
+    // Sub-line lists only networks the SKU is actually on and short of.
     const sendBits = [
-      needWfs > 0 ? `WFS ${needWfs.toLocaleString()}` : null,
-      needFba > 0 ? `FBA ${needFba.toLocaleString()}` : null,
+      (needWfs !== null && needWfs > 0) ? `WFS ${needWfs.toLocaleString()}` : null,
+      (needFba !== null && needFba > 0) ? `FBA ${needFba.toLocaleString()}` : null,
     ].filter(Boolean).join(' · ');
-    const need90Color = (needWfs > 0 || needFba > 0) ? 'var(--red,#c0392b)' : 'var(--text-light,#bbb)';
+    const need90Color = sendBits ? 'var(--red,#c0392b)' : 'var(--text-light,#bbb)';
     const wfs90Cell = `<span class="need90-wrap" style="position:relative;font-weight:600;cursor:help;color:${need90 > 0 ? need90Color : '#bbb'};">${need90}${sendBits ? `<div style="font-size:10px;font-weight:600;color:#c0392b;">${sendBits}</div>` : ''}${need90Card}</span>`;
 
     return `<tr>
