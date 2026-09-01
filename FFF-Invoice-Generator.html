@@ -248,6 +248,13 @@
 <!-- DASHBOARD TAB -->
 <div id="tab-dashboard" class="tab-content">
 <div class="container">
+  <!-- Monthly breakdown -->
+  <div class="card">
+    <h2>By Month</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">Click a month to set the date range below. Click again to clear it.</p>
+    <div id="monthSummary"></div>
+  </div>
+
   <!-- Event Summary -->
   <div class="card">
     <h2>Events</h2>
@@ -261,11 +268,17 @@
     <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
       <input type="text" id="dashSearch" placeholder="Search by SKU, Product ID, Brand, or Event..." oninput="renderDashboard()"
         style="flex:1;min-width:200px;padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
-      <input type="date" id="dashDateFrom" onchange="renderDashboard()" title="From date"
-        style="padding:8px 10px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
-      <span style="color:#888;font-size:12px;">to</span>
-      <input type="date" id="dashDateTo" onchange="renderDashboard()" title="To date"
-        style="padding:8px 10px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
+      <!-- Single range picker. dashDateFrom / dashDateTo are kept as hidden inputs
+           so every existing filter path (renderDashboard, clearDashFilters) works unchanged. -->
+      <div id="rangeWrap" style="position:relative;">
+        <button type="button" id="rangeBtn" onclick="toggleRangePicker(event)"
+          style="padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;white-space:nowrap;min-width:200px;text-align:left;">
+          📅 <span id="rangeLabel">All dates</span>
+        </button>
+        <div id="rangePop" style="display:none;position:absolute;z-index:200;top:calc(100% + 6px);left:0;background:#fff;border:1px solid #d9d9d9;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.16);padding:14px;"></div>
+      </div>
+      <input type="hidden" id="dashDateFrom">
+      <input type="hidden" id="dashDateTo">
       <select id="dashEvent" onchange="renderDashboard()" style="padding:8px 12px;border:2px solid #ddd;border-radius:8px;font-size:13px;">
         <option value="">All Events</option>
       </select>
@@ -1344,7 +1357,180 @@ function clearDashFilters() {
   document.getElementById('dashDateFrom').value = '';
   document.getElementById('dashDateTo').value = '';
   document.getElementById('dashEvent').value = '';
+  rangePick = { start: '', end: '' };
   renderDashboard();
+}
+
+// ========== DATE RANGE PICKER ==========
+// Self-contained two-month calendar. No libraries — this page is served from
+// GitHub Pages and must keep working offline of any CDN.
+// Writes into the hidden dashDateFrom / dashDateTo inputs, so all existing
+// filtering keeps reading the same two values it always did.
+
+let rangePick = { start: '', end: '' };   // 'YYYY-MM-DD'
+let rangeViewMonth = null;                // Date pinned to the 1st of the left-hand month
+
+const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const _ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const _pretty = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+function toggleRangePicker(ev) {
+  if (ev) ev.stopPropagation();
+  const pop = document.getElementById('rangePop');
+  if (pop.style.display === 'block') { pop.style.display = 'none'; return; }
+  if (!rangeViewMonth) {
+    // Open on the month of the current start date, else the newest invoice, else today.
+    const anchor = rangePick.start || (getInvoiceHistory().map(i => i.date).filter(Boolean).sort().pop());
+    const d = anchor ? new Date(anchor + 'T00:00:00') : new Date();
+    rangeViewMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);   // show prev + current
+  }
+  pop.style.display = 'block';
+  drawRangePicker();
+}
+
+function shiftRangeMonth(n) { rangeViewMonth = new Date(rangeViewMonth.getFullYear(), rangeViewMonth.getMonth() + n, 1); drawRangePicker(); }
+
+function _calMonth(base) {
+  const y = base.getFullYear(), m = base.getMonth();
+  const first = new Date(y, m, 1), lead = first.getDay(), days = new Date(y, m + 1, 0).getDate();
+  const today = _ymd(new Date());
+  let cells = '';
+  for (let i = 0; i < lead; i++) cells += '<div></div>';
+  for (let d = 1; d <= days; d++) {
+    const iso = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const isStart = iso === rangePick.start, isEnd = iso === rangePick.end;
+    const inRange = rangePick.start && rangePick.end && iso > rangePick.start && iso < rangePick.end;
+    let st = 'padding:6px 0;text-align:center;font-size:12px;cursor:pointer;border-radius:6px;user-select:none;';
+    if (isStart || isEnd) st += 'background:#0070C0;color:#fff;font-weight:700;';
+    else if (inRange) st += 'background:#e0ecff;color:#0b3d63;';
+    else if (iso === today) st += 'box-shadow:inset 0 0 0 1px #0070C0;color:#0070C0;font-weight:600;';
+    cells += `<div style="${st}" onmouseover="if(!this.style.background)this.style.background='#f0f0f0'" onmouseout="if(this.style.background==='rgb(240, 240, 240)')this.style.background=''" onclick="pickRangeDay('${iso}')">${d}</div>`;
+  }
+  return `<div style="min-width:210px;">
+    <div style="text-align:center;font-weight:700;font-size:13px;margin-bottom:6px;color:#1a3a5c;">${_MONTHS[m]} ${y}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px;color:#999;text-align:center;margin-bottom:2px;">
+      <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">${cells}</div></div>`;
+}
+
+function drawRangePicker() {
+  const right = new Date(rangeViewMonth.getFullYear(), rangeViewMonth.getMonth() + 1, 1);
+  const nav = (label, n) => `<button type="button" onclick="shiftRangeMonth(${n})" style="border:1px solid #ddd;background:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px;line-height:1;">${label}</button>`;
+  const preset = (label, fn) => `<button type="button" onclick="${fn}" style="padding:5px 10px;border:1px solid #ddd;background:#fff;border-radius:14px;font-size:11px;cursor:pointer;white-space:nowrap;">${label}</button>`;
+  const sel = rangePick.start
+    ? `${_pretty(rangePick.start)} → ${rangePick.end ? _pretty(rangePick.end) : '<em style="color:#999;">pick end date</em>'}`
+    : '<span style="color:#999;">Pick a start date</span>';
+
+  document.getElementById('rangePop').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;">
+      ${nav('‹', -1)}<div style="font-size:12px;color:#555;flex:1;text-align:center;">${sel}</div>${nav('›', 1)}
+    </div>
+    <div style="display:flex;gap:18px;">${_calMonth(rangeViewMonth)}${_calMonth(right)}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid #eee;">
+      ${preset('This month', 'presetRange(0)')}
+      ${preset('Last month', 'presetRange(1)')}
+      ${preset('Last 3 months', 'presetRange(3)')}
+      ${preset('This year', 'presetRange(-1)')}
+      ${preset('All time', 'presetRange(-2)')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button type="button" onclick="applyRange()" style="flex:1;padding:7px;background:#0070C0;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Apply</button>
+      <button type="button" onclick="presetRange(-2)" style="padding:7px 14px;border:1px solid #ccc;background:#fff;border-radius:8px;font-size:12px;cursor:pointer;">Clear</button>
+    </div>`;
+}
+
+function pickRangeDay(iso) {
+  // First click (or a click before the current start) begins a new range.
+  if (!rangePick.start || rangePick.end || iso < rangePick.start) rangePick = { start: iso, end: '' };
+  else rangePick.end = iso;
+  drawRangePicker();
+  if (rangePick.start && rangePick.end) applyRange();   // both ends chosen — apply straight away
+}
+
+function presetRange(kind) {
+  const now = new Date();
+  if (kind === -2) rangePick = { start: '', end: '' };
+  else if (kind === -1) rangePick = { start: _ymd(new Date(now.getFullYear(), 0, 1)), end: _ymd(new Date(now.getFullYear(), 11, 31)) };
+  else if (kind === 0) rangePick = { start: _ymd(new Date(now.getFullYear(), now.getMonth(), 1)), end: _ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
+  else if (kind === 1) rangePick = { start: _ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)), end: _ymd(new Date(now.getFullYear(), now.getMonth(), 0)) };
+  else rangePick = { start: _ymd(new Date(now.getFullYear(), now.getMonth() - (kind - 1), 1)), end: _ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
+  applyRange();
+}
+
+function applyRange() {
+  document.getElementById('dashDateFrom').value = rangePick.start || '';
+  document.getElementById('dashDateTo').value = rangePick.end || '';
+  document.getElementById('rangePop').style.display = 'none';
+  renderDashboard();
+}
+
+// Close the popover on an outside click.
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('rangeWrap');
+  if (wrap && !wrap.contains(e.target)) { const p = document.getElementById('rangePop'); if (p) p.style.display = 'none'; }
+});
+
+// ========== MONTHLY BREAKDOWN ==========
+// Buckets the FULL history by calendar month (not the filtered set) so the month
+// list stays stable while a range is applied — otherwise selecting a month would
+// hide every other month and you could never switch.
+function renderMonthSummary(allHistory, dateFrom, dateTo) {
+  const el = document.getElementById('monthSummary');
+  if (!el) return;
+  const months = {};
+  allHistory.forEach(inv => {
+    if (!inv.date) return;
+    const key = String(inv.date).slice(0, 7);            // YYYY-MM
+    if (!months[key]) months[key] = { key, invoices: 0, events: new Set(), qty: 0, rev: 0 };
+    const m = months[key];
+    m.invoices++; m.events.add(inv.saleName);
+    m.qty += (inv.totalQty || 0); m.rev += (inv.totalAmount || 0);
+  });
+  const list = Object.values(months).sort((a, b) => b.key.localeCompare(a.key));
+  if (!list.length) { el.innerHTML = '<p style="color:#999;font-size:13px;">No invoices yet.</p>'; return; }
+
+  const maxRev = Math.max(...list.map(m => m.rev)) || 1;
+  const money = n => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const totals = list.reduce((a, m) => ({ inv: a.inv + m.invoices, qty: a.qty + m.qty, rev: a.rev + m.rev }), { inv: 0, qty: 0, rev: 0 });
+
+  el.innerHTML = '<table style="width:100%;"><thead><tr>' +
+    '<th>Month</th><th style="text-align:right;">Events</th><th style="text-align:right;">Invoices</th>' +
+    '<th style="text-align:right;">Units</th><th style="text-align:right;">Revenue</th><th style="width:34%;">Share</th>' +
+    '</tr></thead><tbody>' +
+    list.map(m => {
+      const [y, mo] = m.key.split('-');
+      const first = m.key + '-01';
+      const last = _ymd(new Date(+y, +mo, 0));
+      const active = dateFrom === first && dateTo === last;
+      const pct = Math.round((m.rev / maxRev) * 100);
+      return `<tr style="${active ? 'background:#e0ecff;' : ''}">
+        <td><a href="#" onclick="selectMonth('${m.key}');return false;" style="color:#0070C0;text-decoration:none;font-weight:600;">${_MONTHS[+mo - 1]} ${y}</a>${active ? ' <span style="font-size:10px;color:#0070C0;">● selected</span>' : ''}</td>
+        <td style="text-align:right;">${m.events.size}</td>
+        <td style="text-align:right;">${m.invoices}</td>
+        <td style="text-align:right;">${m.qty.toLocaleString()}</td>
+        <td class="amount" style="text-align:right;">${money(m.rev)}</td>
+        <td><div style="background:#eef1f5;border-radius:5px;height:9px;"><div style="width:${pct}%;background:#0070C0;height:9px;border-radius:5px;"></div></div></td>
+      </tr>`;
+    }).join('') +
+    `<tr style="font-weight:700;border-top:2px solid #ddd;background:#fafafa;">
+       <td>${list.length} months</td><td></td>
+       <td style="text-align:right;">${totals.inv}</td>
+       <td style="text-align:right;">${totals.qty.toLocaleString()}</td>
+       <td class="amount" style="text-align:right;">${money(totals.rev)}</td><td></td></tr>` +
+    '</tbody></table>';
+}
+
+// Clicking a month sets the range to that whole month; clicking the selected one clears it.
+function selectMonth(key) {
+  const [y, mo] = key.split('-');
+  const first = key + '-01';
+  const last = _ymd(new Date(+y, +mo, 0));
+  const cur = document.getElementById('dashDateFrom').value;
+  const curTo = document.getElementById('dashDateTo').value;
+  if (cur === first && curTo === last) rangePick = { start: '', end: '' };
+  else rangePick = { start: first, end: last };
+  rangeViewMonth = new Date(+y, +mo - 2, 1);
+  applyRange();
 }
 
 function filterByEvent(eventName) {
@@ -1450,6 +1636,20 @@ function renderDashboard() {
     }
     tagEl.innerHTML = tags.join('');
   }
+
+  // ── Keep the range button label + picker state in sync with the active filter ──
+  rangePick = { start: dateFrom, end: dateTo };
+  const rangeLabelEl = document.getElementById('rangeLabel');
+  if (rangeLabelEl) {
+    rangeLabelEl.textContent = (dateFrom || dateTo)
+      ? (_pretty(dateFrom) || 'Start') + ' → ' + (_pretty(dateTo) || 'End')
+      : 'All dates';
+  }
+  const rangeBtnEl = document.getElementById('rangeBtn');
+  if (rangeBtnEl) rangeBtnEl.style.borderColor = (dateFrom || dateTo) ? '#0070C0' : '#ddd';
+
+  // ── Monthly breakdown (built from the FULL history, not the filtered set) ──
+  renderMonthSummary(allHistory, dateFrom, dateTo);
 
   // ── Event Summary section ──
   const eventSummaryEl = document.getElementById('eventSummary');
