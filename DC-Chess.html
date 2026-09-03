@@ -7,7 +7,8 @@
 <style>
   :root{--bg:#0f1220;--panel:#171a2b;--ink:#eef1ff;--muted:#9aa3c7;--light:#cdd6f4;--dark:#4b5583;--sel:#f2c14e;--dot:rgba(80,200,120,.9);--cap:#e05a5a;--last:rgba(242,193,78,.35);--check:rgba(224,74,74,.6);}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:radial-gradient(1200px 600px at 50% -10%,#1c2140,#0f1220 60%);color:var(--ink);min-height:100vh;padding:16px}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:radial-gradient(1200px 600px at 50% -10%,#1c2140,#0f1220 60%);color:var(--ink);min-height:100vh;padding:16px;-webkit-text-size-adjust:100%}
+  .board{touch-action:manipulation}
   .wrap{max-width:720px;margin:0 auto}
   h1{font-size:26px;font-weight:800;letter-spacing:1px;text-align:center}
   h1 span{color:var(--sel)}
@@ -19,7 +20,7 @@
   .status{text-align:center;font-size:15px;font-weight:600;min-height:22px;margin:8px 0}
   .status .who{color:var(--sel)} .status .alert{color:#ff8a8a} .status .think{color:#8fd0ff}
   .boardstage{position:relative;width:min(92vw,560px);margin:0 auto}
-  .board{display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;box-shadow:0 0 0 6px #10121f,0 12px 40px rgba(0,0,0,.5)}
+  .board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;box-shadow:0 0 0 6px #10121f,0 12px 40px rgba(0,0,0,.5)}
   .sq{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
   .sq.l{background:var(--light)} .sq.d{background:var(--dark)}
   .sq.last::before{content:"";position:absolute;inset:0;background:var(--last)}
@@ -62,6 +63,29 @@
   @keyframes streak{0%{transform:translateX(-120%);opacity:0}30%{opacity:1}100%{transform:translateX(120%);opacity:0}}
   @keyframes rise{to{transform:translateY(-40%) scale(1.8);opacity:0}}
   .shake{animation:shakeX .35s}
+  .sq{min-width:0;min-height:0}
+  @media (max-width:520px){
+    body{padding:8px}
+    .wrap{max-width:100%}
+    h1{font-size:21px}
+    .sub{font-size:11px;margin-bottom:8px}
+    .bar{gap:6px;margin-bottom:6px}
+    label.ctl{font-size:11px}
+    select,button{padding:6px 9px;font-size:12px}
+    .boardstage{width:96vw}
+    .trays{gap:6px}
+    .tray{padding:6px 7px;min-height:44px}
+    .tray h3{font-size:10px}
+    .legend{padding:8px 10px}
+    .legend .grid{grid-template-columns:1fr 1fr}
+    .legend .item{font-size:11px}
+    .legend .item span{font-size:10px}
+    .card{width:min(360px,92vw)}
+    .note{font-size:10px}
+  }
+  @media (max-width:380px){
+    .legend .grid{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
