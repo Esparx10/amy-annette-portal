@@ -648,8 +648,15 @@ function updateWCCUrl() {
 // Each card is its own app. `wcc` paths are served by the Walmart Command Center tunnel (see getWCCUrl)
 // and are re-resolved on every render so a tunnel URL change applies everywhere at once.
 const portalSections = [
-  { title: 'Walmart', apps: [
+  { title: 'Channels', apps: [
     { icon: '📊', name: 'Walmart Command Center', desc: 'Orders, revenue, products, inventory, WFS, returns, forecast', wcc: '', status: 'live' },
+    { icon: '🟠', name: 'Amazon', desc: 'Amazon dashboard — ads campaigns, search terms, Ask Claude', wcc: '/amazon-ads', status: 'live' },
+    { icon: '🔴', name: 'Target+', desc: 'Target Plus sales dashboard — daily revenue, period compare, TCIN master', wcc: '/target-plus.html', status: 'live' },
+    { icon: '🛒', name: 'Woot', desc: 'Order dashboard, SKU analytics, invoice history & QTY matcher', url: 'QTY-Update.html', status: 'live' },
+    { icon: '🧾', name: 'Fab Fit Fun', desc: 'Invoice generator + line sheets for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
+    { icon: '🔄', name: 'Reorder Manager', desc: 'Shared order list — sales requests, production fulfills', url: 'reorder-manager.html', status: 'live' },
+  ]},
+  { title: 'Walmart', apps: [
     { icon: '🔎', name: 'SEO Optimizer', desc: 'Listing optimization engine — keyword research, content humanizer, feed push', wcc: '/seo-optimizer', status: 'live' },
     { icon: '↩️', name: 'Returns Disputes', desc: 'Customer returns worth disputing — 45-day deadlines, inspection, evidence prep & Seller Center filing tracker', wcc: '/returns-disputes', status: 'live' },
   ]},
@@ -657,17 +664,10 @@ const portalSections = [
     { icon: '🟡', name: 'Walmart Ads', desc: 'Ad Center reports — campaigns, keywords, ROAS, weekly pulls', wcc: '/walmart-ads', status: 'live' },
     { icon: '📦', name: 'Ads × WFS', desc: 'Ad spend vs WFS stock — what is being promoted that cannot ship', wcc: '/ads-wfs', status: 'live' },
     { icon: '✅', name: 'Ads Approvals', desc: 'Review and approve recommended bid, budget and keyword changes', wcc: '/ads-approvals', status: 'live' },
-    { icon: '🟠', name: 'Amazon Ads', desc: 'Amazon Advertising dashboard — campaigns, search terms, Ask Claude', wcc: '/amazon-ads', status: 'live' },
     { icon: '🎯', name: 'Target+ Ads', desc: 'Roundel reports — ROAS, cap-out, missed sales', wcc: '/target-ads', status: 'live' },
   ]},
-  { title: 'Channels', apps: [
-    { icon: '🔴', name: 'Target+', desc: 'Target Plus sales dashboard — daily revenue, period compare, TCIN master', wcc: '/target-plus.html', status: 'live' },
-    { icon: '🛒', name: 'Woot', desc: 'Order dashboard, SKU analytics, invoice history & QTY matcher', url: 'QTY-Update.html', status: 'live' },
-    { icon: '🧾', name: 'Fab Fit Fun', desc: 'Invoice generator + line sheets for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
+  { title: 'More', apps: [
     { icon: '📱', name: 'TikTok', desc: 'TikTok channels + Studio — Shopify product to AI video to post', wcc: '/tiktok-channels.html', status: 'live' },
-  ]},
-  { title: 'Tools', apps: [
-    { icon: '🔄', name: 'Reorder Manager', desc: 'Shared order list — sales requests, production fulfills', url: 'reorder-manager.html', status: 'live' },
     { icon: '🎨', name: 'Image Generator', desc: '2000×2000 Amazon listing images — auto-pull product photo, studio-polish, branded template', wcc: '/image-generator', status: 'live' },
   ]},
 ];
