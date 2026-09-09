@@ -621,8 +621,7 @@ body::before {
        Populated by loadReminderBanner() (state lives in localStorage under aa_reminders). -->
   <div id="comparisonPricingReminder" style="display:none;margin:0 0 24px;"></div>
 
-  <h3 class="section-title">Your Apps</h3>
-  <div class="app-grid" id="appGrid"></div>
+  <div id="appGrid"></div>
 
 </div>
 
@@ -646,15 +645,33 @@ function updateWCCUrl() {
   }
 }
 
-const portalApps = [
-  { icon: '📊', name: 'Walmart Command Center', desc: 'Full analytics dashboard — orders, revenue, WFS, disputes, inventory · 🎯 Target+ tab', url: getWCCUrl(), status: 'live' },
-  { icon: '🟠', name: 'Woot', desc: 'Order dashboard, SKU analytics, invoice history & QTY matcher', url: 'QTY-Update.html', status: 'live' },
-  { icon: '🧾', name: 'Fab Fit Fun', desc: 'Invoice generator + line sheets for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
-  { icon: '🔄', name: 'Reorder Manager', desc: 'Shared order list — sales requests, production fulfills', url: 'reorder-manager.html', status: 'live' },
-  { icon: '🎨', name: 'Image Generator', desc: '2000×2000 Amazon listing images — auto-pull product photo, studio-polish, branded template', url: getWCCUrl() + '/image-generator', status: 'live' },
-  { icon: '↩️', name: 'Returns Disputes', desc: 'Customer returns worth disputing — 45-day deadlines, inspection, evidence prep & Seller Center filing tracker', url: getWCCUrl() + '/returns-disputes', status: 'live' },
-  { icon: '🖼️', name: 'Content Approval', desc: 'Save SKU-named images to Downloads → auto-upload → approve → Support emailed to add across all outlets', url: getWCCUrl() + '/content-approval', status: 'live' },
+// Each card is its own app. `wcc` paths are served by the Walmart Command Center tunnel (see getWCCUrl)
+// and are re-resolved on every render so a tunnel URL change applies everywhere at once.
+const portalSections = [
+  { title: 'Walmart', apps: [
+    { icon: '📊', name: 'Walmart Command Center', desc: 'Orders, revenue, products, inventory, WFS, returns, forecast', wcc: '', status: 'live' },
+    { icon: '🔎', name: 'SEO Optimizer', desc: 'Listing optimization engine — keyword research, content humanizer, feed push', wcc: '/seo-optimizer', status: 'live' },
+    { icon: '↩️', name: 'Returns Disputes', desc: 'Customer returns worth disputing — 45-day deadlines, inspection, evidence prep & Seller Center filing tracker', wcc: '/returns-disputes', status: 'live' },
+  ]},
+  { title: 'Advertising', apps: [
+    { icon: '🟡', name: 'Walmart Ads', desc: 'Ad Center reports — campaigns, keywords, ROAS, weekly pulls', wcc: '/walmart-ads', status: 'live' },
+    { icon: '📦', name: 'Ads × WFS', desc: 'Ad spend vs WFS stock — what is being promoted that cannot ship', wcc: '/ads-wfs', status: 'live' },
+    { icon: '✅', name: 'Ads Approvals', desc: 'Review and approve recommended bid, budget and keyword changes', wcc: '/ads-approvals', status: 'live' },
+    { icon: '🟠', name: 'Amazon Ads', desc: 'Amazon Advertising dashboard — campaigns, search terms, Ask Claude', wcc: '/amazon-ads', status: 'live' },
+    { icon: '🎯', name: 'Target+ Ads', desc: 'Roundel reports — ROAS, cap-out, missed sales', wcc: '/target-ads', status: 'live' },
+  ]},
+  { title: 'Channels', apps: [
+    { icon: '🔴', name: 'Target+', desc: 'Target Plus sales dashboard — daily revenue, period compare, TCIN master', wcc: '/target-plus.html', status: 'live' },
+    { icon: '🛒', name: 'Woot', desc: 'Order dashboard, SKU analytics, invoice history & QTY matcher', url: 'QTY-Update.html', status: 'live' },
+    { icon: '🧾', name: 'Fab Fit Fun', desc: 'Invoice generator + line sheets for FFF sales & events', url: 'FFF-Invoice-Generator.html', status: 'live' },
+    { icon: '📱', name: 'TikTok', desc: 'TikTok channels + Studio — Shopify product to AI video to post', wcc: '/tiktok-channels.html', status: 'live' },
+  ]},
+  { title: 'Tools', apps: [
+    { icon: '🔄', name: 'Reorder Manager', desc: 'Shared order list — sales requests, production fulfills', url: 'reorder-manager.html', status: 'live' },
+    { icon: '🎨', name: 'Image Generator', desc: '2000×2000 Amazon listing images — auto-pull product photo, studio-polish, branded template', wcc: '/image-generator', status: 'live' },
+  ]},
 ];
+const portalApps = portalSections.flatMap(s => s.apps);
 
 
 // ─── Pin Input Logic ───
@@ -866,28 +883,28 @@ function markReminderDone(id) {
 function loadComparisonReminder() { loadReminderBanner(); }
 function acknowledgeComparisonReminder() { markReminderDone('cmp-pricing'); }
 
-function renderApps() {
-  // Refresh Walmart-backed URLs whenever we render (tunnel URL may have been updated)
-  portalApps.forEach(app => {
-    if (app.name === 'Walmart Command Center') app.url = getWCCUrl();
-    if (app.name === 'Image Generator') app.url = getWCCUrl() + '/image-generator';
-    if (app.name === 'Returns Disputes') app.url = getWCCUrl() + '/returns-disputes';
-  });
+function appUrl(app) {
+  return app.wcc !== undefined ? getWCCUrl() + app.wcc : app.url;
+}
 
+function renderApps() {
   const grid = document.getElementById('appGrid');
-  grid.innerHTML = portalApps.map(app => `
-    <div style="position:relative;">
-      <a class="app-card" href="${app.url}" target="_blank" ${app.url !== '#' ? '' : 'onclick="event.preventDefault()"'} style="display:block;">
-        <div class="icon">${app.icon}</div>
-        <div class="name">${app.name}</div>
-        <div class="desc">${app.desc}</div>
-        <span class="badge ${app.status === 'live' ? 'badge-live' : 'badge-soon'}">${app.status === 'live' ? 'Live' : 'Coming Soon'}</span>
-      </a>
-      ${app.name === 'Walmart Command Center'
-        ? '<button onclick="event.stopPropagation();updateWCCUrl();" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;font-size:16px;opacity:0.5;z-index:2;" title="Update tunnel URL">&#9881;</button>'
-        : ''}
-    </div>
-  `).join('');
+  grid.innerHTML = portalSections.map(sec => `
+    <h3 class="section-title">${sec.title}</h3>
+    <div class="app-grid">
+      ${sec.apps.map(app => `
+      <div style="position:relative;">
+        <a class="app-card" href="${appUrl(app)}" target="_blank" style="display:block;">
+          <div class="icon">${app.icon}</div>
+          <div class="name">${app.name}</div>
+          <div class="desc">${app.desc}</div>
+          <span class="badge ${app.status === 'live' ? 'badge-live' : 'badge-soon'}">${app.status === 'live' ? 'Live' : 'Coming Soon'}</span>
+        </a>
+        ${app.name === 'Walmart Command Center'
+          ? '<button onclick="event.stopPropagation();updateWCCUrl();" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;font-size:16px;opacity:0.5;z-index:2;" title="Update tunnel URL">&#9881;</button>'
+          : ''}
+      </div>`).join('')}
+    </div>`).join('');
 }
 
 function logout() {
