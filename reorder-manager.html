@@ -156,6 +156,13 @@ tr:hover td { background: #faf6f1; }
 .badge-ordered { background: #fff3e6; color: #C4833A; }
 .badge-received { background: #e6f2e8; color: #5a7e5e; }
 .badge-denied { background: #fbe7e7; color: #a83a3a; }
+.badge-inquiry { background: #fdf1d6; color: #9a6b1f; }
+.note-text { font-size: 12px; max-width: 240px; white-space: normal; line-height: 1.3; color: var(--text); }
+th[data-key] { cursor: pointer; user-select: none; white-space: nowrap; }
+th[data-key]:hover { color: var(--accent); }
+th[data-key]::after { content: '\2195'; margin-left: 4px; opacity: 0.3; font-size: 9px; }
+th.sort-asc::after { content: '\25B2'; opacity: 1; color: var(--accent); }
+th.sort-desc::after { content: '\25BC'; opacity: 1; color: var(--accent); }
 .check-col { text-align: center; font-size: 16px; }
 .times-col { text-align: center; font-weight: 700; }
 .stock-col { text-align: center; }
@@ -204,6 +211,7 @@ tr:hover td { background: #faf6f1; }
   <div class="stats-row">
     <div class="stat-box"><div class="num" style="color:var(--blue)" id="statRequested">0</div><div class="lbl">Requested</div></div>
     <div class="stat-box"><div class="num" style="color:var(--orange)" id="statOrdered">0</div><div class="lbl">On Order</div></div>
+    <div class="stat-box"><div class="num" style="color:#9a6b1f" id="statInquiry">0</div><div class="lbl">Inquiry</div></div>
     <div class="stat-box"><div class="num" style="color:var(--green)" id="statReceived">0</div><div class="lbl">Received</div></div>
   </div>
 
@@ -240,6 +248,7 @@ tr:hover td { background: #faf6f1; }
     <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
     <button class="filter-tab" onclick="setFilter('Requested',this)">Requested <span class="count" id="filterRequested"></span></button>
     <button class="filter-tab" onclick="setFilter('Ordered',this)">On Order <span class="count" id="filterOrdered"></span></button>
+    <button class="filter-tab" onclick="setFilter('Inquiry',this)" title="Requested items that carry a note — a question to answer before ordering">Inquiry <span class="count" id="filterInquiry"></span></button>
     <button class="filter-tab" onclick="setFilter('Received',this)">Received <span class="count" id="filterReceived"></span></button>
     <button class="filter-tab" onclick="setFilter('Denied',this)" title="Archived denied requests" style="color:#a83a3a;">Denied <span class="count" id="filterDenied"></span></button>
     <input type="text" id="orderSearch" placeholder="Search SKU (incl. history)..." oninput="applySearch(); onSearchChange();" style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:240px;font-family:var(--font-body);">
@@ -250,20 +259,21 @@ tr:hover td { background: #faf6f1; }
     <div class="table-scroll">
       <table id="orderTable">
         <thead><tr>
-          <th>SKU</th>
-          <th title="When this row was requested (created_at timestamp)">Request Date</th>
-          <th style="text-align:center">On Order?</th>
-          <th style="text-align:center" title="Number of times this SKU has been requested historically">Times</th>
-          <th style="text-align:center">Stock</th>
-          <th style="text-align:center" title="Units sold across all channels in the last 30 days. Walmart only for now — Amazon and Target+ slots are reserved.">Sold 30d</th>
-          <th style="text-align:center" title="Units needed to cover 90 days of demand (all channels). Hover a cell for the WFS / Amazon FBA split.">Need 90d</th>
-          <th style="text-align:center">Suggested Qty</th>
-          <th style="text-align:center">Production Qty</th>
-          <th style="text-align:right">Original Cost</th>
-          <th style="text-align:right">New Cost</th>
-          <th>Status</th>
-          <th>Date Ordered</th>
-          <th>Notes</th>
+          <th data-key="sku" onclick="setSort('sku')" title="Click to sort">SKU</th>
+          <th data-key="created_at" onclick="setSort('created_at')" title="When this row was requested. Click to sort">Request Date</th>
+          <th data-key="status" onclick="setSort('status')" style="text-align:center" title="Click to sort">On Order?</th>
+          <th data-key="times_requested" onclick="setSort('times_requested')" style="text-align:center" title="Number of times this SKU has been requested historically. Click to sort">Times</th>
+          <th data-key="stock" onclick="setSort('stock')" style="text-align:center" title="Click to sort">Stock</th>
+          <th data-key="sold30" onclick="setSort('sold30')" style="text-align:center" title="Units sold across all channels in the last 30 days. Click to sort">Sold 30d</th>
+          <th data-key="need90_demand" onclick="setSort('need90_demand')" style="text-align:center" title="Units needed to cover 90 days of demand (all channels). Hover a cell for the WFS / Amazon FBA split. Click to sort">Need 90d</th>
+          <th data-key="suggested_qty" onclick="setSort('suggested_qty')" style="text-align:center" title="Click to sort">Suggested Qty</th>
+          <th data-key="production_qty" onclick="setSort('production_qty')" style="text-align:center" title="Click to sort">Production Qty</th>
+          <th data-key="original_cost" onclick="setSort('original_cost')" style="text-align:right" title="Click to sort">Original Cost</th>
+          <th data-key="new_cost" onclick="setSort('new_cost')" style="text-align:right" title="Click to sort">New Cost</th>
+          <th data-key="status" onclick="setSort('status')" title="Click to sort: Requested → Inquiry → Ordered → Received → Denied">Status</th>
+          <th data-key="ordered_at" onclick="setSort('ordered_at')" title="Click to sort">Date Ordered</th>
+          <th data-key="notes" onclick="setSort('notes')" title="Click to sort">Notes</th>
+          <th data-key="notes" onclick="setSort('notes')" title="The note in full. Click to sort">Note Text</th>
           <th></th>
         </tr></thead>
         <tbody id="orderBody"></tbody>
@@ -384,6 +394,8 @@ async function loadStats() {
   const data = await fetch(API + '/api/reorder-list/stats').then(r => r.json());
   document.getElementById('statRequested').textContent = data.requested || 0;
   document.getElementById('statOrdered').textContent = data.ordered || 0;
+  document.getElementById('statInquiry').textContent = data.inquiry || 0;
+  document.getElementById('filterInquiry').textContent = data.inquiry ? `(${data.inquiry})` : '';
   document.getElementById('statReceived').textContent = data.received || 0;
   document.getElementById('filterRequested').textContent = data.requested ? `(${data.requested})` : '';
   document.getElementById('filterOrdered').textContent = data.ordered ? `(${data.ordered})` : '';
@@ -437,11 +449,63 @@ function onSearchChange() {
   }, 300);
 }
 
+// ── Column sorting ──────────────────────────────────────────────────────
+// Click a header to sort; click again to flip; a third click clears. Status
+// sorts in workflow order (Requested → Inquiry → Ordered → Received → Denied).
+// Remembered per browser and re-applied on every re-render.
+const STATUS_RANK = { Requested: 1, Inquiry: 2, Ordered: 3, Received: 4, Denied: 5, Expired: 6 };
+const escHtml = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let currentSort = null;
+try { currentSort = JSON.parse(localStorage.getItem('reorderSort') || 'null'); } catch (e) { currentSort = null; }
+function sortVal(o, key) {
+  switch (key) {
+    case 'status': return STATUS_RANK[o.status] || 9;
+    case 'stock': return Number(o.current_stock || 0);
+    case 'sold30': return Number(o.total_units30 || 0);
+    case 'times_requested': return Number(o.times_requested || 1);
+    case 'created_at': case 'ordered_at': return o[key] || '';
+    case 'need90_demand': case 'suggested_qty': case 'production_qty': case 'original_cost': case 'new_cost':
+      return o[key] == null || o[key] === '' ? null : Number(o[key]);
+    default: return o[key] == null ? '' : String(o[key]);
+  }
+}
+function applySort(rows) {
+  if (!currentSort || !currentSort.key) return rows;
+  const { key, dir } = currentSort, m = dir === 'desc' ? -1 : 1;
+  return rows.slice().sort((a, b) => {
+    const av = sortVal(a, key), bv = sortVal(b, key);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;            // blanks always last
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * m;
+    const as = String(av).toLowerCase(), bs = String(bv).toLowerCase();
+    if (as === bs) return 0;
+    if (as === '') return 1;
+    if (bs === '') return -1;
+    return (as < bs ? -1 : 1) * m;
+  });
+}
+function setSort(key) {
+  if (currentSort && currentSort.key === key) currentSort = currentSort.dir === 'asc' ? { key, dir: 'desc' } : null;
+  else currentSort = { key, dir: 'asc' };
+  try { localStorage.setItem('reorderSort', JSON.stringify(currentSort)); } catch (e) {}
+  renderTable();
+}
+function paintSortHeaders() {
+  document.querySelectorAll('th[data-key]').forEach(th => {
+    const on = currentSort && currentSort.key === th.dataset.key;
+    th.classList.toggle('sort-asc', !!on && currentSort.dir === 'asc');
+    th.classList.toggle('sort-desc', !!on && currentSort.dir === 'desc');
+  });
+}
+
 function renderTable() {
   const tbody = document.getElementById('orderBody');
   const searchQ = (document.getElementById('orderSearch')?.value || '').trim().toUpperCase();
   let display = allOrders;
   if (searchQ) display = display.filter(o => (o.sku || '').toUpperCase().includes(searchQ));
+  display = applySort(display);
+  paintSortHeaders();
 
   // Past-activity rows (from order_history). Only visible when a SKU search is active
   // AND we have fetched history for that exact SKU.
@@ -450,7 +514,7 @@ function renderTable() {
     : [];
 
   if (!display.length && !historyRows.length) {
-    tbody.innerHTML = `<tr><td colspan="15" class="empty-msg">${searchQ ? 'No matching SKUs and no history for "' + searchQ + '"' : 'No items yet. Add SKUs above to get started.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="empty-msg">${searchQ ? 'No matching SKUs and no history for "' + searchQ + '"' : 'No items yet. Add SKUs above to get started.'}</td></tr>`;
     document.getElementById('rowCount').textContent = searchQ ? `0 of ${allOrders.length} items` : '';
     return;
   }
@@ -464,8 +528,11 @@ function renderTable() {
     const isOrdered   = o.status === 'Ordered';
     const isReceived  = o.status === 'Received';
     const isDenied    = o.status === 'Denied';
+    const isInquiry   = o.status === 'Inquiry';   // Requested + a note: needs an answer before ordering
+    const isOpen      = isRequested || isInquiry;
     const stockClass = o.current_stock > 0 ? 'stock-ok' : 'stock-oos';
     const badgeClass = isRequested ? 'badge-requested'
+                     : isInquiry   ? 'badge-inquiry'
                      : isOrdered   ? 'badge-ordered'
                      : isReceived  ? 'badge-received'
                      : isDenied    ? 'badge-denied'
@@ -486,7 +553,7 @@ function renderTable() {
 
     const histBtn = `<button class="btn" style="background:#888;color:#fff;font-size:10px;padding:2px 6px;" onclick="showHistory('${o.sku.replace(/'/g, "\\'")}', ${JSON.stringify(o.item_name || '')})" title="View order history for this SKU">📜</button>`;
     let actions = '';
-    if (isRequested) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered (Approve)">Order</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Deny request">Deny</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
+    if (isOpen) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered (Approve)">Order</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Deny request">Deny</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
     else if (isOrdered) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})" title="Mark Received">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
     else if (isDenied) actions = `<button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove from archive">&times;</button> ${histBtn}`;
     else actions = histBtn;
@@ -705,13 +772,14 @@ function renderTable() {
       <td class="stock-col"><span class="stock-val ${stockClass}">${o.current_stock > 0 ? Math.floor(o.current_stock) : 'OOS'}</span></td>
       <td style="text-align:center;">${sold30Cell}</td>
       <td style="text-align:center;">${wfs90Cell}</td>
-      <td style="text-align:center" title="Manual override if set, otherwise 90-day units sold across all sellers (Walmart 90d + Amazon 30d×3 + Target+ 90d)">${isRequested ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="${o.suggested_qty_90d || 0}" oninput="debouncedUpdate(${o.id},'suggested_qty',this.value)">${(!o.suggested_qty && o.suggested_qty_90d) ? `<div style="font-size:10px;color:var(--text-light);margin-top:2px;font-style:italic;">auto: ${o.suggested_qty_90d}</div>` : ''}` : (o.suggested_qty || (o.suggested_qty_90d ? `<span style="font-style:italic;color:var(--text-light);" title="Auto-suggested from 90d total">${o.suggested_qty_90d}</span>` : '-'))}</td>
-      <td style="text-align:center">${isRequested || isOrdered ? `<input class="inline-num" type="number" value="${o.production_qty || ''}" placeholder="0" oninput="debouncedUpdate(${o.id},'production_qty',this.value)">` : (o.production_qty || '-')}</td>
+      <td style="text-align:center" title="Manual override if set, otherwise 90-day units sold across all sellers (Walmart 90d + Amazon 30d×3 + Target+ 90d)">${isOpen ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="${o.suggested_qty_90d || 0}" oninput="debouncedUpdate(${o.id},'suggested_qty',this.value)">${(!o.suggested_qty && o.suggested_qty_90d) ? `<div style="font-size:10px;color:var(--text-light);margin-top:2px;font-style:italic;">auto: ${o.suggested_qty_90d}</div>` : ''}` : (o.suggested_qty || (o.suggested_qty_90d ? `<span style="font-style:italic;color:var(--text-light);" title="Auto-suggested from 90d total">${o.suggested_qty_90d}</span>` : '-'))}</td>
+      <td style="text-align:center">${isOpen || isOrdered ? `<input class="inline-num" type="number" value="${o.production_qty || ''}" placeholder="0" oninput="debouncedUpdate(${o.id},'production_qty',this.value)">` : (o.production_qty || '-')}</td>
       <td style="text-align:right;font-size:12px;color:var(--text-light)">${o.original_cost ? '$' + o.original_cost.toFixed(2) : '-'}</td>
-      <td style="text-align:right">${isRequested || isOrdered ? `<input class="inline-cost" type="number" step="0.01" value="${o.new_cost || ''}" placeholder="$0.00" oninput="debouncedUpdate(${o.id},'new_cost',this.value)">` : (o.new_cost ? '$' + o.new_cost.toFixed(2) : '-')}</td>
+      <td style="text-align:right">${isOpen || isOrdered ? `<input class="inline-cost" type="number" step="0.01" value="${o.new_cost || ''}" placeholder="$0.00" oninput="debouncedUpdate(${o.id},'new_cost',this.value)">` : (o.new_cost ? '$' + o.new_cost.toFixed(2) : '-')}</td>
       <td><span class="badge ${badgeClass}">${o.status}</span></td>
       <td style="font-size:12px;color:var(--text-light)">${dateCell}</td>
-      <td><button class="btn btn-outline" style="font-size:11px;padding:3px 8px;${o.notes ? 'color:var(--accent);border-color:var(--accent);' : ''}" onclick="openNotesModal(${o.id})">${o.notes ? (o.notes.length > 20 ? o.notes.substring(0,20)+'...' : o.notes) : 'Notes'}</button></td>
+      <td><button class="btn btn-outline" style="font-size:11px;padding:3px 8px;${o.notes ? 'color:var(--accent);border-color:var(--accent);' : ''}" onclick="openNotesModal(${o.id})">${o.notes ? 'Edit' : 'Add note'}</button></td>
+      <td class="note-text" title="${escHtml(o.notes || '')}">${escHtml(o.notes || '')}</td>
       <td style="white-space:nowrap">${actions}</td>
     </tr>`;
   }).join('');
@@ -729,7 +797,7 @@ function renderTable() {
     // Match the new 15-column layout: SKU · Request Date · OnOrder · Times ·
     // Stock · Sold 30d · WFS 90d · Suggested · Production · Original · New ·
     // Status · Date Ordered · Notes · Actions
-    let html = `<tr style="background:#f5efe7;"><td colspan="15" style="padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A5C4F;font-weight:600;">─── ${dividerLabel} ───</td></tr>`;
+    let html = `<tr style="background:#f5efe7;"><td colspan="16" style="padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A5C4F;font-weight:600;">─── ${dividerLabel} ───</td></tr>`;
     html += historyRows.map(h => {
       const ts = (h.timestamp || '').replace('T', ' ').slice(0, 16);
       return `<tr style="background:#fafafa;">
@@ -747,6 +815,7 @@ function renderTable() {
         <td><span class="badge" style="background:${actionBg(h.action)};color:${actionColor(h.action)};text-transform:uppercase;">${h.action}</span></td>
         <td style="font-size:11px;color:#888;">${ts}</td>
         <td style="font-size:11px;color:#666;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(h.notes||'').replace(/"/g, '&quot;')}">${h.notes || ''}</td>
+        <td></td>
         <td></td>
       </tr>`;
     }).join('');
@@ -798,7 +867,7 @@ async function addToList() {
   // Only warn when the existing reorder is 30 days old or less — after
   // 30 days on the list, re-requesting is treated as intentional.
   const existing = allOrdersUnfiltered.find(o => {
-    if (o.sku !== sku || (o.status !== 'Ordered' && o.status !== 'Requested')) return false;
+    if (o.sku !== sku || (o.status !== 'Ordered' && o.status !== 'Requested' && o.status !== 'Inquiry')) return false;
     const refTs = o.ordered_at || o.created_at;
     if (!refTs) return true; // no timestamp — warn to be safe
     const ageDays = (Date.now() - new Date(refTs.replace(' ', 'T') + (refTs.endsWith('Z') ? '' : 'Z'))) / 86400000;
@@ -1148,7 +1217,7 @@ function openNotesModal(id) {
   const order = allOrdersUnfiltered.find(o => o.id === id);
   if (!order) return;
   notesModalId = id;
-  const editable = order.status === 'Requested' || order.status === 'Ordered';
+  const editable = order.status === 'Requested' || order.status === 'Inquiry' || order.status === 'Ordered';
   document.getElementById('notesModalTitle').textContent = `Notes — ${order.sku}`;
   const textarea = document.getElementById('notesModalText');
   textarea.value = order.notes || '';
