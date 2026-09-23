@@ -486,7 +486,9 @@ function applySort(rows) {
   });
 }
 function setSort(key) {
-  if (currentSort && currentSort.key === key) currentSort = currentSort.dir === 'asc' ? { key, dir: 'desc' } : null;
+  // Status never turns off — it just flips (Requested/Inquiry stay on top in asc).
+  // Other columns cycle asc → desc → off. The "All" tab clears any sort (date order).
+  if (currentSort && currentSort.key === key) currentSort = currentSort.dir === 'asc' ? { key, dir: 'desc' } : (key === 'status' ? { key, dir: 'asc' } : null);
   else currentSort = { key, dir: 'asc' };
   try { localStorage.setItem('reorderSort', JSON.stringify(currentSort)); } catch (e) {}
   renderTable();
@@ -991,6 +993,10 @@ function closeHistory() { document.getElementById('historyModal').style.display 
 
 function setFilter(status, btn) {
   currentFilter = status;
+  if (status === 'all') {                       // "All" = plain date order, drop any column sort
+    currentSort = null;
+    try { localStorage.removeItem('reorderSort'); } catch (e) {}
+  }
   document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   loadOrders();
