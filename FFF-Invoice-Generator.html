@@ -216,9 +216,9 @@
 <div class="container">
   <div class="card">
     <h2>Master Sheet - SKU & Pricing</h2>
-    <p style="font-size:12px;color:#888;margin-bottom:12px;">Edit products below or drop an updated master sheet XLSX to replace all data.</p>
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">Edit products below, or drop a master sheet XLSX to <b>add new products</b> - products already on the master are kept and never overwritten.</p>
     <div class="drop-zone" id="masterDropZone" onclick="document.getElementById('masterFileInput').click()" style="padding:20px;margin-bottom:14px;">
-      <h3 style="font-size:13px;">Drop Master Sheet XLSX to import</h3>
+      <h3 style="font-size:13px;">Drop Master Sheet XLSX to add new products</h3>
       <p>Columns: Brand Name | product_id | Sku | UNIT PRICE</p>
     </div>
     <input type="file" class="file-input-hidden" id="masterFileInput" accept=".xlsx,.csv" onchange="importMaster(this.files[0])">
