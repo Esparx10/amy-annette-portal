@@ -904,47 +904,66 @@ function deleteMasterRow(idx) {
 }
 
 function importMaster(file) {
+  // Elie 2026-09-29: dropping an Excel must only ADD products that are not on the master yet.
+  // It never replaces or overwrites the existing sheet (a drop at 12:40 PM wiped 41 products).
+  // Columns are found by their header names (Brand / Product ID / SKU / Price), not by position.
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
+    const ms = document.getElementById('masterStatus');
     try {
       const wb = XLSX.read(e.target.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-      // Find header row
-      let headerRow = 0;
-      for (let r = 0; r < Math.min(5, rows.length); r++) {
-        const row = rows[r] || [];
-        for (let c = 0; c < row.length; c++) {
-          if (String(row[c] || '').toLowerCase().includes('brand')) { headerRow = r; break; }
+      // Find the header row and map columns by name
+      let headerRow = -1, col = { brand: 0, productId: 1, sku: 2, price: 3 };
+      for (let r = 0; r < Math.min(10, rows.length) && headerRow < 0; r++) {
+        const h = (rows[r] || []).map(c => String(c || '').toLowerCase().trim());
+        if (h.some(x => x.includes('brand')) || h.some(x => x.includes('product')) || h.some(x => x === 'sku' || x.includes('sku'))) {
+          headerRow = r;
+          const find = (test) => h.findIndex(test);
+          const b = find(x => x.includes('brand'));
+          const p = find(x => x.includes('product') || x === 'id' || x.includes('item id'));
+          const s = find(x => x.includes('sku'));
+          const pr = find(x => x.includes('price') || x.includes('cost'));
+          col = { brand: b >= 0 ? b : 0, productId: p >= 0 ? p : 1, sku: s >= 0 ? s : 2, price: pr >= 0 ? pr : 3 };
         }
       }
+      if (headerRow < 0) headerRow = 0;
 
-      const newData = [];
+      const looksLikeId = v => /^IDI-|-DS$/i.test(v);
+      const incoming = [];
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r];
         if (!row) continue;
-        const brand = String(row[0] || '').trim();
-        const productId = String(row[1] || '').trim();
-        const sku = String(row[2] || '').trim();
-        const price = parseFloat(row[3]) || 0;
-        if (brand || productId || sku) {
-          newData.push({ brand, productId, sku, price });
-        }
+        let brand = String(row[col.brand] || '').trim();
+        let productId = String(row[col.productId] || '').trim();
+        const sku = String(row[col.sku] || '').trim();
+        const price = parseFloat(row[col.price]) || 0;
+        if (looksLikeId(brand) && !looksLikeId(productId)) { const t = brand; brand = productId; productId = t; }  // swapped columns
+        if (productId) incoming.push({ brand, productId, sku, price });
       }
 
-      if (newData.length > 0) {
-        masterData = newData;
-        dbSaveMasterData(masterData);   // FIX: persist the imported master to SQLite/IndexedDB
-        renderMasterTable();
-        const ms = document.getElementById('masterStatus');
-        ms.textContent = `Imported ${newData.length} products from master sheet.`;
-        ms.className = 'status-banner success';
+      const have = new Set(masterData.map(r => String(r.productId || '').trim().toUpperCase()));
+      const added = [], skipped = [];
+      for (const r of incoming) {
+        const k = r.productId.toUpperCase();
+        if (have.has(k)) { skipped.push(r); continue; }
+        have.add(k); added.push(r);
       }
+      for (const r of added) {
+        masterData.push(r);
+        await ((r) => dbSaveMasterRow(r.productId, { brand: r.brand, sku: r.sku, price: r.price }))(r);                 // one row at a time: never a full replace
+      }
+      renderMasterTable();
+      ms.textContent = added.length
+        ? `Added ${added.length} new product${added.length === 1 ? '' : 's'} (${added.map(r => r.productId).join(', ')}). ` +
+          `${skipped.length} already on the master were left unchanged. Master now has ${masterData.length} products.`
+        : `No new products in this file - all ${skipped.length} are already on the master. Nothing was changed.`;
+      ms.className = 'status-banner success';
     } catch (err) {
-      const ms = document.getElementById('masterStatus');
-      ms.textContent = 'Error reading file: ' + err.message;
+      ms.textContent = 'Error reading file: ' + err.message + ' - the master was not changed.';
       ms.className = 'status-banner error';
     }
   };
