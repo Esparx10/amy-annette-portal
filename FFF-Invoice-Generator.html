@@ -896,11 +896,16 @@ function addMasterRow() {
   if (inputs.length) inputs[inputs.length - 1].focus();
 }
 
-function deleteMasterRow(idx) {
+async function deleteMasterRow(idx) {
+  // The master is add-only for drops and Save All; this button is the ONE way to remove a product.
   if (!confirm('Delete this product from master sheet?')) return;
   syncMasterFromTable();
-  masterData.splice(idx, 1);
+  const removed = masterData.splice(idx, 1)[0];
   renderMasterTable();
+  if (removed && removed.productId) {
+    try { await fetch(FFF_API + '/api/fff/master/' + encodeURIComponent(removed.productId), { method: 'DELETE', headers: FFF_HEADERS }); }
+    catch (e) { console.error('Delete failed:', e); showToast('Delete failed - refresh and try again'); }
+  }
 }
 
 function importMaster(file) {
