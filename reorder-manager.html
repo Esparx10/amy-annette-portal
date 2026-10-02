@@ -157,6 +157,7 @@ tr:hover td { background: #faf6f1; }
 .badge-received { background: #e6f2e8; color: #5a7e5e; }
 .badge-denied { background: #fbe7e7; color: #a83a3a; }
 .badge-inquiry { background: #fdf1d6; color: #9a6b1f; }
+.badge-suggested { background: #efe7f7; color: #6b4a9a; }
 .note-text { font-size: 12px; max-width: 240px; white-space: normal; line-height: 1.3; color: var(--text); }
 th[data-key] { cursor: pointer; user-select: none; white-space: nowrap; }
 th[data-key]:hover { color: var(--accent); }
@@ -246,6 +247,7 @@ th.sort-desc::after { content: '\25BC'; opacity: 1; color: var(--accent); }
   <!-- Filter Tabs -->
   <div class="filter-tabs" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-tab" onclick="setFilter('Suggested',this)" title="Auto suggestions from Sortly stock + sales trends (30-day lead time, 90 days of cover). Approve moves it to Requested." style="color:#6b4a9a;">Suggested <span class="count" id="filterSuggested"></span></button>
     <button class="filter-tab" onclick="setFilter('Requested',this)">Requested <span class="count" id="filterRequested"></span></button>
     <button class="filter-tab" onclick="setFilter('Ordered',this)">On Order <span class="count" id="filterOrdered"></span></button>
     <button class="filter-tab" onclick="setFilter('Inquiry',this)" title="Requested items that carry a note — a question to answer before ordering">Inquiry <span class="count" id="filterInquiry"></span></button>
@@ -398,6 +400,8 @@ async function loadStats() {
   document.getElementById('filterInquiry').textContent = data.inquiry ? `(${data.inquiry})` : '';
   document.getElementById('statReceived').textContent = data.received || 0;
   document.getElementById('filterRequested').textContent = data.requested ? `(${data.requested})` : '';
+  const sugTab = document.getElementById('filterSuggested');
+  if (sugTab) sugTab.textContent = data.suggested ? `(${data.suggested})` : '';
   document.getElementById('filterOrdered').textContent = data.ordered ? `(${data.ordered})` : '';
   document.getElementById('filterReceived').textContent = data.received ? `(${data.received})` : '';
   // Denied count derived from the in-memory list since /stats doesn't track it.
@@ -453,7 +457,7 @@ function onSearchChange() {
 // Click a header to sort; click again to flip; a third click clears. Status
 // sorts in workflow order (Requested → Inquiry → Ordered → Received → Denied).
 // Remembered per browser and re-applied on every re-render.
-const STATUS_RANK = { Requested: 1, Inquiry: 2, Ordered: 3, Received: 4, Denied: 5, Expired: 6 };
+const STATUS_RANK = { Suggested: 0, Requested: 1, Inquiry: 2, Ordered: 3, Received: 4, Denied: 5, Expired: 6 };
 const escHtml = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let currentSort = null;
 try { currentSort = JSON.parse(localStorage.getItem('reorderSort') || 'null'); } catch (e) { currentSort = null; }
@@ -531,9 +535,11 @@ function renderTable() {
     const isReceived  = o.status === 'Received';
     const isDenied    = o.status === 'Denied';
     const isInquiry   = o.status === 'Inquiry';   // Requested + a note: needs an answer before ordering
+    const isSuggested = o.status === 'Suggested'; // auto: scripts/reorder-suggest.js (Sortly + sales trend)
     const isOpen      = isRequested || isInquiry;
     const stockClass = o.current_stock > 0 ? 'stock-ok' : 'stock-oos';
-    const badgeClass = isRequested ? 'badge-requested'
+    const badgeClass = isSuggested ? 'badge-suggested'
+                     : isRequested ? 'badge-requested'
                      : isInquiry   ? 'badge-inquiry'
                      : isOrdered   ? 'badge-ordered'
                      : isReceived  ? 'badge-received'
@@ -555,7 +561,8 @@ function renderTable() {
 
     const histBtn = `<button class="btn" style="background:#888;color:#fff;font-size:10px;padding:2px 6px;" onclick="showHistory('${o.sku.replace(/'/g, "\\'")}', ${JSON.stringify(o.item_name || '')})" title="View order history for this SKU">📜</button>`;
     let actions = '';
-    if (isOpen) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered (Approve)">Order</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Deny request">Deny</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
+    if (isSuggested) actions = `<button class="btn btn-green" onclick="approveItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}', ${+o.suggested_qty || 0})" title="Approve: move to Requested">Approve</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Not now (stays quiet 30 days unless sales double)">Deny</button> ${histBtn}`;
+    else if (isOpen) actions = `<button class="btn btn-orange" onclick="markOrdered(${o.id})" title="Mark Ordered (Approve)">Order</button> <button class="btn" style="background:#a83a3a;color:#fff;" onclick="denyItem(${o.id}, '${o.sku.replace(/'/g, "\\'")}')" title="Deny request">Deny</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
     else if (isOrdered) actions = `<button class="btn btn-green" onclick="markReceived(${o.id})" title="Mark Received">Recv</button> <button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove">&times;</button> ${histBtn}`;
     else if (isDenied) actions = `<button class="btn btn-red" onclick="deleteItem(${o.id})" title="Remove from archive">&times;</button> ${histBtn}`;
     else actions = histBtn;
@@ -928,6 +935,18 @@ async function markReceived(id) {
 async function deleteItem(id) {
   if (!confirm('Remove this item from the list?')) return;
   await fetch(API + '/api/reorder-list/' + id, { method: 'DELETE' });
+  loadOrders();
+}
+
+async function approveItem(id, sku, qty) {
+  const v = prompt(`Approve reorder for ${sku}?
+
+Quantity (suggested ${qty}):`, qty);
+  if (v === null) return;
+  const r = await fetch(API + '/api/reorder-list/' + id + '/approve', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ qty: parseInt(v) || qty }),
+  });
+  if (!r.ok) alert('Approve failed: ' + (await r.text()).slice(0, 200));
   loadOrders();
 }
 
