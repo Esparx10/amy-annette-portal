@@ -778,7 +778,7 @@ function renderTable() {
       <td style="font-size:11px;color:var(--text-light);white-space:nowrap;">${reqDateStr}</td>
       <td class="check-col">${isOrdered ? '<span style="color:var(--orange)">&#10003;</span>' : isReceived ? '<span style="color:var(--green)">&#10003;</span>' : ''}</td>
       <td class="times-col">${o.times_requested || 1}</td>
-      <td class="stock-col"><span class="stock-val ${stockClass}">${o.current_stock > 0 ? Math.floor(o.current_stock) : 'OOS'}</span></td>
+      <td class="stock-col" title="${o.stock_updated_at ? 'Warehouse stock from Sortly (' + String(o.stock_updated_at).slice(0,10) + ')' + (o.stock_at_request != null ? ' · at request: ' + Math.floor(o.stock_at_request) : '') : 'Stock when requested'}"><span class="stock-val ${stockClass}">${o.current_stock > 0 ? Math.floor(o.current_stock) : 'OOS'}</span></td>
       <td style="text-align:center;">${sold30Cell}</td>
       <td style="text-align:center;">${wfs90Cell}</td>
       <td style="text-align:center" title="Manual override if set, otherwise 90-day units sold across all sellers (Walmart 90d + Amazon 30d×3 + Target+ 90d)">${isOpen ? `<input class="inline-num" type="number" value="${o.suggested_qty || ''}" placeholder="${o.suggested_qty_90d || 0}" oninput="debouncedUpdate(${o.id},'suggested_qty',this.value)">${(!o.suggested_qty && o.suggested_qty_90d) ? `<div style="font-size:10px;color:var(--text-light);margin-top:2px;font-style:italic;">auto: ${o.suggested_qty_90d}</div>` : ''}` : (o.suggested_qty || (o.suggested_qty_90d ? `<span style="font-style:italic;color:var(--text-light);" title="Auto-suggested from 90d total">${o.suggested_qty_90d}</span>` : '-'))}</td>
