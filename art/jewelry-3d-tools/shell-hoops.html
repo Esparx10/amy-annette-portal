@@ -1,0 +1,53 @@
+<title>Polished Gold Hoops</title>
+<meta name="description" content="Graduated polished-gold hinged hoop earrings rendered in real-time 3D.">
+<style>
+  /* Product-shot stage: studio white by default, dark on request. The hoops are the page. */
+  :root {
+    --ground: #f4f4f3;
+    --ink: #2b2620;
+    --ink-dim: rgba(43, 38, 32, 0.55);
+    --gold: #a77b2c;
+    --chip: rgba(255, 255, 255, 0.7);
+    --chip-line: rgba(167, 123, 44, 0.35);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    color-scheme: light;
+  }
+  :root[data-backdrop="dark"] {
+    --ground: #131214; --ink: #ecdfcb; --ink-dim: rgba(236, 223, 203, 0.55); --gold: #d4ae66;
+    --chip: rgba(30, 27, 28, 0.72); --chip-line: rgba(212, 174, 102, 0.35); color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; background: var(--ground); color: var(--ink); overflow: hidden; transition: background .3s; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #stage canvas:active { cursor: grabbing; }
+  .caption { position: fixed; left: 20px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
+    display: grid; gap: 4px; max-width: calc(100% - 200px); }
+  .caption .name { font: italic 400 15px/1.2 var(--serif); letter-spacing: 0.01em; }
+  .caption .hint { font: 500 10.5px/1.3 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); }
+  .controls { position: fixed; right: 18px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px 7px 10px; border-radius: 999px;
+    background: var(--chip); border: 1px solid var(--chip-line); color: var(--ink);
+    font: 500 11px/1 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: border-color .2s; }
+  .chip:hover { border-color: var(--gold); }
+  .chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .chip .ico svg { width: 11px; height: 11px; fill: var(--gold); display: block; }
+  .chip .dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--gold);
+    background: linear-gradient(90deg, #131214 50%, #f4f4f3 50%); }
+  .loading { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none;
+    font: italic 14px var(--serif); color: var(--ink-dim); transition: opacity .6s; }
+  .ready .loading { opacity: 0; }
+  @media (max-width: 480px) { .caption .hint { display: none; } }
+</style>
+<div id="stage"></div>
+<div class="loading">Polishing…</div>
+<div class="caption">
+  <span class="name">Polished gold graduated hoops</span>
+  <span class="hint">Drag to orbit · Scroll to zoom</span>
+</div>
+<div class="controls">
+  <button id="backdrop" class="chip" type="button"><span class="dot" aria-hidden="true"></span><span class="label">Dark</span></button>
+  <button id="pause" class="chip" type="button" aria-pressed="false"><span class="ico"></span><span class="label">Pause</span></button>
+</div>
+<script>/*BUNDLE*/</script>

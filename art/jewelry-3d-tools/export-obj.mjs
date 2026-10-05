@@ -1,0 +1,10 @@
+import * as THREE from 'three';
+import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js';
+import fs from 'fs';
+import { buildHoop } from './src/hoopGeometry.js';
+const g = buildHoop(new THREE.MeshStandardMaterial());
+const b = new THREE.Box3().setFromObject(g);
+g.position.y = -b.min.y;
+g.updateMatrixWorld(true);
+fs.writeFileSync('blender/hoop.obj', new OBJExporter().parse(g));
+console.log('exported', (fs.statSync('blender/hoop.obj').size / 1e6).toFixed(1) + 'MB', b.getSize(new THREE.Vector3()).toArray().map(v => v.toFixed(3)));
