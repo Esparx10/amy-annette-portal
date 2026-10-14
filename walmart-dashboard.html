@@ -955,18 +955,27 @@ function updateSyncStatus(status) {
   const el = document.getElementById('syncStatus');
   if (status.lastSyncs && status.lastSyncs.length) {
     const last = status.lastSyncs[0];
-    el.textContent = timeSince(new Date(last.at)) + ' ago';
+    el.textContent = 'Synced ' + timeSince(last.at) + ' ago';
   } else {
     el.textContent = '';
   }
 }
 
+// Server timestamps like "2026-10-14 17:00:12" are UTC with no zone marker; read them as UTC (was showing "-11937s ago").
+function parseServerTime(v) {
+  if (v instanceof Date) return v;
+  if (v == null || v === '') return null;
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) return new Date(s.replace(' ', 'T') + 'Z');
+  return new Date(s);
+}
 function timeSince(date) {
-  const s = Math.floor((Date.now() - date) / 1000);
-  if (s < 60) return s + 's';
-  if (s < 3600) return Math.floor(s/60) + 'm';
-  if (s < 86400) return Math.floor(s/3600) + 'h';
-  return Math.floor(s/86400) + 'd';
+  const d = parseServerTime(date);
+  const m = Math.max(0, Math.floor((Date.now() - d) / 60000));
+  if (m < 1) return 'under 1 min';
+  if (m < 60) return m + ' min';
+  if (m < 1440) return Math.floor(m / 60) + 'h ' + (m % 60) + 'min';
+  return Math.floor(m / 1440) + 'd';
 }
 
 // ============ CONNECT ============
