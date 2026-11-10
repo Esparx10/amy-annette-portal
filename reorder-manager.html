@@ -33,6 +33,9 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .price-status { color: var(--text-light); font-size: 11px; }
 
 .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+.view-tabs { max-width: 1600px; margin: 0 auto; padding: 14px 20px 0; display: flex; gap: 6px; }
+.view-tab { padding: 8px 18px; border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; background: var(--card); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--font-body); }
+.view-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 /* Reorder table: keep it wide but compact so the action buttons (Order/Deny/×)
    are visible without horizontal scrolling on typical laptop screens. */
 #orderTable { table-layout: auto; }
@@ -207,7 +210,12 @@ th.sort-desc::after { content: '\25BC'; opacity: 1; color: var(--accent); }
   </div>
 </div>
 
-<div class="container">
+<div class="view-tabs">
+  <button class="view-tab active" id="viewOrders" onclick="showView('orders')">Orders</button>
+  <button class="view-tab" id="viewShipments" onclick="showView('shipments')" title="Christy's ship lists + tracking, and a SKU lookup for when it's coming">Shipments <span class="count" id="filterShipments"></span></button>
+</div>
+
+<div class="container" id="ordersView">
   <!-- Stats -->
   <div class="stats-row">
     <div class="stat-box"><div class="num" style="color:var(--blue)" id="statRequested">0</div><div class="lbl">Requested</div></div>
@@ -253,21 +261,7 @@ th.sort-desc::after { content: '\25BC'; opacity: 1; color: var(--accent); }
     <button class="filter-tab" onclick="setFilter('Inquiry',this)" title="Requested items that carry a note — a question to answer before ordering">Inquiry <span class="count" id="filterInquiry"></span></button>
     <button class="filter-tab" onclick="setFilter('Received',this)">Received <span class="count" id="filterReceived"></span></button>
     <button class="filter-tab" onclick="setFilter('Denied',this)" title="Archived denied requests" style="color:#a83a3a;">Denied <span class="count" id="filterDenied"></span></button>
-    <button class="filter-tab" onclick="setFilter('Shipments',this)" title="Christy's ship lists + tracking, and a SKU lookup for when it's coming" style="color:#2f6b8a;">Shipments <span class="count" id="filterShipments"></span></button>
     <input type="text" id="orderSearch" placeholder="Search SKU (incl. history)..." oninput="applySearch(); onSearchChange();" style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:240px;font-family:var(--font-body);">
-  </div>
-
-  <!-- Christy shipments (ship list emails + tracking, pulled every 2h by christy-pull.js) -->
-  <div class="card" id="christyCard" style="display:none;padding:16px 18px;">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-      <h3 style="margin:0;font-size:16px;">Christy Shipments</h3>
-      <span style="font-size:12px;color:var(--text-light);">Ship lists + tracking from Christy's emails (Nov 2026 on)</span>
-      <input type="text" id="christySku" placeholder="Look up a SKU: when is it coming?" onkeydown="if(event.key==='Enter')christyLookup()"
-        style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:260px;font-family:var(--font-body);">
-      <button class="btn btn-blue" onclick="christyLookup()">Look up</button>
-    </div>
-    <div id="christyLookupResult"></div>
-    <div id="christyShipments" style="font-size:13px;color:var(--text-light);">Loading...</div>
   </div>
 
   <!-- Order List Table -->
@@ -303,6 +297,22 @@ th.sort-desc::after { content: '\25BC'; opacity: 1; color: var(--accent); }
     <div class="spacer"></div>
     <button class="btn btn-outline" onclick="copyList()">Copy</button>
     <button class="btn btn-green" onclick="downloadExcel()">Download Excel</button>
+  </div>
+</div>
+
+<!-- Shipments screen -->
+<div class="container" id="shipmentsView" style="display:none;">
+  <!-- Christy shipments (ship list emails + tracking, pulled every 2h by christy-pull.js) -->
+  <div class="card" id="christyCard" style="padding:16px 18px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <h3 style="margin:0;font-size:16px;">Christy Shipments</h3>
+      <span style="font-size:12px;color:var(--text-light);">Ship lists + tracking from Christy's emails (Nov 2026 on)</span>
+      <input type="text" id="christySku" placeholder="Look up a SKU: when is it coming?" onkeydown="if(event.key==='Enter')christyLookup()"
+        style="margin-left:auto;padding:6px 12px;border:1px solid #E2D4C8;border-radius:8px;font-size:13px;width:260px;font-family:var(--font-body);">
+      <button class="btn btn-blue" onclick="christyLookup()">Look up</button>
+    </div>
+    <div id="christyLookupResult"></div>
+    <div id="christyShipments" style="font-size:13px;color:var(--text-light);">Loading...</div>
   </div>
 </div>
 
@@ -1084,17 +1094,16 @@ async function showHistory(sku, itemName) {
 
 function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
 
+function showView(v) {                         // Orders | Shipments screens under the nav title
+  const ships = v === 'shipments';
+  document.getElementById('ordersView').style.display = ships ? 'none' : '';
+  document.getElementById('shipmentsView').style.display = ships ? '' : 'none';
+  document.getElementById('viewOrders').classList.toggle('active', !ships);
+  document.getElementById('viewShipments').classList.toggle('active', ships);
+  if (ships) loadChristyShipments();
+}
+
 function setFilter(status, btn) {
-  const ships = status === 'Shipments';          // Shipments tab swaps the order table for the Christy card
-  document.getElementById('christyCard').style.display = ships ? '' : 'none';
-  document.getElementById('orderCard').style.display = ships ? 'none' : '';
-  document.getElementById('orderBottom').style.display = ships ? 'none' : '';
-  if (ships) {
-    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    loadChristyShipments();
-    return;
-  }
   currentFilter = status;
   if (status === 'all') {                       // "All" = plain date order, drop any column sort
     currentSort = null;
