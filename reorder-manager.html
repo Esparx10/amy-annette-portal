@@ -443,6 +443,7 @@ async function loadChristyShipments() {
           ${s.total_due ? ` · <span title="Christy's running balance on this ship list">balance ${money(s.total_due)}</span>` : ''}
           ${s.file_path ? ` · <a href="${API}/api/christy/file/${s.ship_date}" style="color:var(--accent);">xlsx</a>` : ''}
           <button class="btn btn-blue" style="margin-left:8px;padding:3px 10px;font-size:11px;" onclick="event.preventDefault();event.stopPropagation();printCheckIn(${i})">&#128424; Print check-in sheet</button>
+          <button class="btn btn-outline" style="margin-left:4px;padding:3px 10px;font-size:11px;" onclick="event.preventDefault();event.stopPropagation();downloadCheckIn(${i},this)">&#11015; Download PDF</button>
         </summary>
         <table style="width:100%;margin-top:8px;font-size:12px;">
           <tr style="text-align:left;color:var(--text-light);"><th></th><th>SKU</th><th>From the ship list</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr>
@@ -502,6 +503,68 @@ function printCheckIn(i) {
     <script>Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => setTimeout(() => print(), 300));<\/script>
     </body></html>`);
   w.document.close();
+}
+
+// Same check-in sheet as a PDF file to forward (jsPDF + autotable, loaded on first use)
+function loadScriptOnce(src) {
+  return new Promise((ok, bad) => {
+    if (document.querySelector(`script[src="${src}"]`)) return ok();
+    const t = document.createElement('script'); t.src = src; t.onload = ok; t.onerror = () => bad(new Error('could not load ' + src));
+    document.head.appendChild(t);
+  });
+}
+async function grayPhoto(url) {                   // Walmart's image CDN allows CORS, so the photo can go through a canvas
+  try {
+    const blob = await fetch(url + '?odnHeight=300&odnWidth=300').then(r => { if (!r.ok) throw 0; return r.blob(); });
+    const im = await createImageBitmap(blob);
+    const c = document.createElement('canvas'); c.width = 240; c.height = 240;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 240, 240);
+    const k = Math.min(240 / im.width, 240 / im.height);
+    g.filter = 'grayscale(100%)';
+    g.drawImage(im, (240 - im.width * k) / 2, (240 - im.height * k) / 2, im.width * k, im.height * k);
+    return c.toDataURL('image/jpeg', 0.85);
+  } catch (e) { return null; }
+}
+async function downloadCheckIn(i, btn) {
+  const s = (window.__christyShips || [])[i];
+  if (!s) return;
+  const label = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Building PDF...'; }
+  try {
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    const photos = await Promise.all(s.lines.map(l => l.image_url ? grayPhoto(l.image_url) : null));
+    const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
+    const M = 30;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text(`Shipment check-in - Christy ship list ${fmtD(s.ship_date)}/${s.ship_date.slice(0, 4)}`, M, M + 12);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`Ship date: ${s.ship_date}   |   ${s.lines.length} SKUs   |   ${Number(s.units).toLocaleString()} units${s.cartons ? '   |   ' + s.cartons + ' carton(s)' : ''}`, M, M + 30);
+    doc.text(`Tracking: ${s.tracking ? `${s.carrier || ''} ${s.tracking}   |   est. arrival ${fmtD(s.est_arrival)}` : 'not sent yet'}   |   Received on: ______________`, M, M + 44);
+    const body = s.lines.map((l, n) => [n + 1, '', `${l.sku || '?'}\n${l.product_name || l.raw_text || ''}`, Number(l.qty).toLocaleString(), '', '', '']);
+    body.push(['', '', 'Total', Number(s.units).toLocaleString(), '', '', '']);
+    doc.autoTable({
+      startY: M + 56, margin: { left: M, right: M },
+      head: [['#', 'Photo', 'SKU', 'Qty shipped', 'Qty received', 'OK', 'Notes']],
+      body, theme: 'grid',
+      styles: { font: 'helvetica', fontSize: 9, textColor: 0, lineColor: 0, lineWidth: 0.6, valign: 'middle', cellPadding: 4 },
+      headStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 20, halign: 'center' }, 1: { cellWidth: 72 }, 2: { cellWidth: 170 },
+                      3: { cellWidth: 60, halign: 'center', fontStyle: 'bold', fontSize: 12 }, 4: { cellWidth: 66 }, 5: { cellWidth: 30 }, 6: { cellWidth: 'auto' } },
+      didParseCell: d => { if (d.section === 'body' && d.row.index < s.lines.length) d.cell.styles.minCellHeight = 70;
+                           if (d.section === 'body' && d.row.index === s.lines.length) d.cell.styles.fontStyle = 'bold'; },
+      didDrawCell: d => {
+        if (d.section !== 'body' || d.row.index >= s.lines.length) return;
+        if (d.column.index === 1 && photos[d.row.index]) doc.addImage(photos[d.row.index], 'JPEG', d.cell.x + 5, d.cell.y + 4, 62, 62);
+        if (d.column.index === 5) doc.rect(d.cell.x + 9, d.cell.y + d.cell.height / 2 - 6, 12, 12);
+      },
+    });
+    const y = doc.lastAutoTable.finalY + 30;
+    doc.setFontSize(10);
+    doc.text('Checked in by: ______________________________      Date: ______________', M, y);
+    doc.save(`Christy-check-in-${s.ship_date}.pdf`);
+  } catch (e) { alert('Could not build the PDF: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = label; } }
 }
 
 async function christyLookup() {
