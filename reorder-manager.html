@@ -434,6 +434,7 @@ async function loadChristyShipments() {
     const cnt = document.getElementById('filterShipments');
     if (cnt) cnt.textContent = ships.length ? `(${ships.length})` : '';
     if (!ships.length) { el.textContent = 'No ship lists yet.'; return; }
+    window.__christyShips = ships;
     el.innerHTML = ships.map((s, i) => `
       <details ${i === 0 ? 'open' : ''} style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--card);">
         <summary style="cursor:pointer;color:var(--text);font-size:13px;">
@@ -441,10 +442,11 @@ async function loadChristyShipments() {
           · ${trackLink(s)}${s.tracking ? ` · est. arrival ${fmtD(s.est_arrival)}` : ''}
           ${s.total_due ? ` · <span title="Christy's running balance on this ship list">balance ${money(s.total_due)}</span>` : ''}
           ${s.file_path ? ` · <a href="${API}/api/christy/file/${s.ship_date}" style="color:var(--accent);">xlsx</a>` : ''}
+          <button class="btn btn-blue" style="margin-left:8px;padding:3px 10px;font-size:11px;" onclick="event.preventDefault();event.stopPropagation();printCheckIn(${i})">&#128424; Print check-in sheet</button>
         </summary>
         <table style="width:100%;margin-top:8px;font-size:12px;">
-          <tr style="text-align:left;color:var(--text-light);"><th>SKU</th><th>From the ship list</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr>
-          ${s.lines.map(l => `<tr><td class="sku-cell">${l.sku ? escHtml(l.sku) : '<span style="color:#a83a3a">?</span>'}${l.sku_known ? '' : ' <span title="Not in our SKU list" style="color:#a83a3a">&#9888;</span>'}</td>
+          <tr style="text-align:left;color:var(--text-light);"><th></th><th>SKU</th><th>From the ship list</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr>
+          ${s.lines.map(l => `<tr><td style="width:46px;">${l.image_url ? `<img src="${l.image_url}?odnHeight=80&odnWidth=80" style="width:40px;height:40px;object-fit:contain;border-radius:6px;background:#fff;" loading="lazy">` : ''}</td><td class="sku-cell">${l.sku ? escHtml(l.sku) : '<span style="color:#a83a3a">?</span>'}${l.sku_known ? '' : ' <span title="Not in our SKU list" style="color:#a83a3a">&#9888;</span>'}</td>
             <td style="color:var(--text-light)">${escHtml(l.raw_text || '')}</td><td style="text-align:right">${l.qty}</td>
             <td style="text-align:right">${money(l.price)}</td><td style="text-align:right">${money(l.amount)}</td></tr>`).join('')}
         </table>
@@ -453,6 +455,55 @@ async function loadChristyShipments() {
       </details>`).join('');
   } catch (e) { el.textContent = 'Could not load Christy shipments.'; }
 }
+// Printable check-in sheet for one ship list: photo, SKU, qty shipped, blank received column (B&W friendly)
+function printCheckIn(i) {
+  const s = (window.__christyShips || [])[i];
+  if (!s) return;
+  const rows = s.lines.map((l, n) => `<tr>
+      <td class="n">${n + 1}</td>
+      <td class="ph">${l.image_url ? `<img src="${l.image_url}?odnHeight=300&odnWidth=300">` : '<div class="noimg">no photo</div>'}</td>
+      <td><div class="sku">${escHtml(l.sku || '?')}</div><div class="desc">${escHtml(l.product_name || l.raw_text || '')}</div></td>
+      <td class="q">${Number(l.qty).toLocaleString()}</td>
+      <td class="box"></td><td class="chk">&#9744;</td><td class="notes"></td></tr>`).join('');
+  const w = window.open('', '_blank');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Check-in - Christy ship list ${s.ship_date}</title>
+    <style>
+      @page { size: letter; margin: 0.4in; }
+      body { font-family: Arial, sans-serif; color: #000; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      .meta { font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { border: 1px solid #000; padding: 6px; vertical-align: middle; }
+      th { background: #e6e6e6; text-align: left; font-size: 11px; }
+      tr { page-break-inside: avoid; }
+      .n { width: 22px; text-align: center; }
+      .ph { width: 92px; text-align: center; }
+      .ph img { width: 86px; height: 86px; object-fit: contain; filter: grayscale(100%); }
+      .noimg { width: 86px; height: 86px; line-height: 86px; font-size: 10px; color: #555; border: 1px dashed #999; }
+      .sku { font-size: 15px; font-weight: bold; }
+      .desc { font-size: 10px; color: #333; margin-top: 3px; }
+      .q { width: 70px; text-align: center; font-size: 16px; font-weight: bold; }
+      .box { width: 80px; } .chk { width: 34px; text-align: center; font-size: 22px; } .notes { width: 150px; }
+      tfoot td { font-weight: bold; }
+      .sign { margin-top: 18px; font-size: 12px; display: flex; gap: 40px; }
+      .sign span { display: inline-block; border-bottom: 1px solid #000; width: 200px; }
+      @media screen { body { padding: 20px; } .bar { margin-bottom: 12px; } }
+      @media print { .bar { display: none; } }
+    </style></head><body>
+    <div class="bar"><button onclick="print()" style="padding:6px 14px;font-size:13px;">Print</button></div>
+    <h1>Shipment check-in &middot; Christy ship list ${fmtD(s.ship_date)}/${s.ship_date.slice(0, 4)}</h1>
+    <div class="meta">Ship date: <b>${s.ship_date}</b> &nbsp;&middot;&nbsp; ${s.lines.length} SKUs &nbsp;&middot;&nbsp; <b>${Number(s.units).toLocaleString()} units</b>${s.cartons ? ' &nbsp;&middot;&nbsp; ' + s.cartons + ' carton(s)' : ''}<br>
+      Tracking: ${s.tracking ? `<b>${escHtml(s.carrier || '')} ${escHtml(s.tracking)}</b> &nbsp;&middot;&nbsp; est. arrival ${fmtD(s.est_arrival)}` : 'not sent yet'}
+      &nbsp;&middot;&nbsp; Received on: ________________</div>
+    <table><thead><tr><th>#</th><th>Photo</th><th>SKU</th><th>Qty shipped</th><th>Qty received</th><th>OK</th><th>Notes</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td></td><td></td><td>Total</td><td class="q">${Number(s.units).toLocaleString()}</td><td></td><td></td><td></td></tr></tfoot></table>
+    <div class="sign">Checked in by: <span></span> &nbsp; Date: <span style="width:120px"></span></div>
+    <script>Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => setTimeout(() => print(), 300));<\/script>
+    </body></html>`);
+  w.document.close();
+}
+
 async function christyLookup() {
   const sku = document.getElementById('christySku').value.trim();
   const el = document.getElementById('christyLookupResult');
