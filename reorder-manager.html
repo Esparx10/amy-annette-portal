@@ -435,8 +435,27 @@ async function loadChristyShipments() {
     if (cnt) cnt.textContent = ships.length ? `(${ships.length})` : '';
     if (!ships.length) { el.textContent = 'No ship lists yet.'; return; }
     window.__christyShips = ships;
-    el.innerHTML = ships.map((s, i) => `
-      <details ${i === 0 ? 'open' : ''} style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--card);">
+    const open = ships.map((s, i) => ({ s, i })).filter(x => !x.s.received_on);
+    const done = ships.map((s, i) => ({ s, i })).filter(x => x.s.received_on);
+    if (cnt) cnt.textContent = open.length ? `(${open.length})` : '';
+    el.innerHTML = (open.length ? open.map(({ s, i }, k) => christyShipHtml(s, i, k === 0)).join('') : '<div style="margin-bottom:8px;">All ship lists received.</div>')
+      + (done.length ? `<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text-light);">Received / archived (${done.length})</summary>
+          <div style="margin-top:8px;opacity:.75;">${done.map(({ s, i }) => christyShipHtml(s, i, false)).join('')}</div></details>` : '');
+  } catch (e) { el.textContent = 'Could not load Christy shipments.'; }
+}
+async function christyReceived(date, undo, btn) {
+  if (!undo && !confirm(`Mark Christy ship list ${fmtD(date)} as received? It moves to the archive.`)) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(API + '/api/christy/' + (undo ? 'unreceived/' : 'received/') + date, { method: 'POST' }).then(r => r.json());
+    if (!r.success) throw new Error(r.error || 'failed');
+    await loadChristyShipments();
+    fetch(API + '/api/christy/by-sku').then(r => r.json()).then(d => { christyBySku = d.skus || {}; if (typeof renderTable === 'function') renderTable(); }).catch(() => {});
+  } catch (e) { alert('Could not update: ' + e.message); btn.disabled = false; }
+}
+function christyShipHtml(s, i, isOpen) {
+  return `
+      <details ${isOpen ? 'open' : ''} style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--card);">
         <summary style="cursor:pointer;color:var(--text);font-size:13px;">
           <b>Ship list ${fmtD(s.ship_date)}</b> · ${s.lines.length} SKUs · ${Number(s.units).toLocaleString()} units · ${money(s.goods_total)}
           · ${trackLink(s)}${s.tracking ? ` · est. arrival ${fmtD(s.est_arrival)}` : ''}
@@ -444,6 +463,10 @@ async function loadChristyShipments() {
           ${s.file_path ? ` · <a href="${API}/api/christy/file/${s.ship_date}" style="color:var(--accent);">xlsx</a>` : ''}
           <button class="btn btn-blue" style="margin-left:8px;padding:3px 10px;font-size:11px;" onclick="event.preventDefault();event.stopPropagation();printCheckIn(${i})">&#128424; Print check-in sheet</button>
           <button class="btn btn-outline" style="margin-left:4px;padding:3px 10px;font-size:11px;" onclick="event.preventDefault();event.stopPropagation();downloadCheckIn(${i},this)">&#11015; Download PDF</button>
+          ${s.received_on
+            ? `<span style="margin-left:8px;color:#5a7e5e;font-weight:600;">&#10003; Received ${fmtD(s.received_on)}</span>
+               <button class="btn btn-outline" style="margin-left:4px;padding:3px 10px;font-size:11px;" onclick="event.preventDefault();event.stopPropagation();christyReceived('${s.ship_date}',true,this)">Undo</button>`
+            : `<button class="btn btn-green" style="margin-left:4px;padding:3px 10px;font-size:11px;background:#5a7e5e;color:#fff;border:none;" onclick="event.preventDefault();event.stopPropagation();christyReceived('${s.ship_date}',false,this)">&#10003; Received</button>`}
         </summary>
         <table style="width:100%;margin-top:8px;font-size:12px;">
           <tr style="text-align:left;color:var(--text-light);"><th></th><th>SKU</th><th>From the ship list</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr>
@@ -453,8 +476,7 @@ async function loadChristyShipments() {
         </table>
         ${(s.shipping || s.tax) ? `<div style="font-size:11px;color:var(--text-light);margin-top:6px;">Shipping ${money(s.shipping)} · tax ${money(s.tax)}${s.cartons ? ' · ' + s.cartons + ' carton(s)' : ''}</div>` : ''}
         ${s.tracking_history.length ? `<div style="font-size:11px;color:var(--text-light);">Replaced tracking: ${s.tracking_history.map(h => h.tracking).join(', ')}</div>` : ''}
-      </details>`).join('');
-  } catch (e) { el.textContent = 'Could not load Christy shipments.'; }
+      </details>`;
 }
 // Printable check-in sheet for one ship list: photo, SKU, qty shipped, blank received column (B&W friendly)
 function printCheckIn(i) {
