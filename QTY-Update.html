@@ -1,4 +1,5 @@
 <!DOCTYPE html><html lang="en"><head>
+<script src="js/portal-key.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Woot</title>
@@ -555,7 +556,7 @@ function switchTab(tabId, btn) {
 
 // Load dashboard iframe on page load
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('wootDashFrame').src = getWCCUrl() + '/woot';
+  document.getElementById('wootDashFrame').src = window.PortalKey ? PortalKey.frameUrl(getWCCUrl() + '/woot') : getWCCUrl() + '/woot';
 });
 
 // Init drop zones
